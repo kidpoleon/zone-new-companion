@@ -84,17 +84,126 @@ class AdaptiveTimeout:
 class SSLAdapter(HTTPAdapter):
     """Custom adapter with SSL configuration for IPTV servers."""
     
+    def __init__(self, ssl_profile='default', **kwargs):
+        self.ssl_profile = ssl_profile
+        super().__init__(**kwargs)
+    
     def init_poolmanager(self, *args, **kwargs):
         """Initialize pool manager with custom SSL context."""
-        context = ssl.create_default_context()
-        context.check_hostname = False
-        context.verify_mode = ssl.CERT_NONE
-        # Allow older cipher suites for compatibility
-        context.set_ciphers('DEFAULT@SECLEVEL=1')
-        
+        context = self._create_ssl_context()
         kwargs['ssl_context'] = context
         kwargs['block'] = False
         return super().init_poolmanager(*args, **kwargs)
+    
+    def _create_ssl_context(self):
+        """Create SSL context based on profile."""
+        context = ssl.create_default_context()
+        
+        if self.ssl_profile == 'permissive':
+            # Most permissive - for problematic servers
+            context.check_hostname = False
+            context.verify_mode = ssl.CERT_NONE
+            context.set_ciphers('ALL:@SECLEVEL=0')
+            context.options |= ssl.OP_NO_SSLv2
+            context.options |= ssl.OP_NO_SSLv3
+        elif self.ssl_profile == 'legacy':
+            # Legacy support - for older servers
+            context.check_hostname = False
+            context.verify_mode = ssl.CERT_NONE
+            context.set_ciphers('DEFAULT@SECLEVEL=1')
+            context.options |= ssl.OP_NO_SSLv2
+            context.options |= ssl.OP_NO_SSLv3
+        elif self.ssl_profile == 'modern':
+            # Modern but flexible
+            context.check_hostname = False
+            context.verify_mode = ssl.CERT_NONE
+            context.set_ciphers('ECDHE+AESGCM:ECDHE+CHACHA20:DHE+AESGCM:DHE+CHACHA20:!aNULL:!MD5:!DSS')
+        else:  # default
+            context.check_hostname = False
+            context.verify_mode = ssl.CERT_NONE
+            context.set_ciphers('DEFAULT@SECLEVEL=1')
+            
+        return context
+
+class FallbackSession:
+    """Session with multiple SSL configuration fallbacks."""
+    
+    def __init__(self):
+        self.sessions = {}
+        self.ssl_profiles = ['default', 'legacy', 'permissive', 'modern']
+        self._create_sessions()
+    
+    def _create_sessions(self):
+        """Create sessions with different SSL configurations."""
+        for profile in self.ssl_profiles:
+            session = requests.Session()
+            
+            # Configure retry strategy
+            retry_strategy = Retry(
+                total=2,
+                backoff_factor=1.0,
+                status_forcelist=[429, 500, 502, 503, 504, 520, 521, 522, 524],
+                allowed_methods=["HEAD", "GET", "OPTIONS", "POST"],
+                raise_on_status=False
+            )
+            
+            # Configure SSL adapter
+            ssl_adapter = SSLAdapter(
+                ssl_profile=profile,
+                max_retries=retry_strategy,
+                pool_connections=10,
+                pool_maxsize=20,
+                pool_block=False
+            )
+            
+            # Configure HTTP adapter
+            http_adapter = HTTPAdapter(
+                max_retries=retry_strategy,
+                pool_connections=10,
+                pool_maxsize=20,
+                pool_block=False
+            )
+            
+            session.mount("http://", http_adapter)
+            session.mount("https://", ssl_adapter)
+            
+            # Set headers
+            session.headers.update({
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                'Accept': 'application/json, text/plain, */*',
+                'Accept-Language': 'en-US,en;q=0.9',
+                'Accept-Encoding': 'gzip, deflate',
+                'Connection': 'keep-alive',
+                'Cache-Control': 'no-cache',
+                'Pragma': 'no-cache'
+            })
+            
+            self.sessions[profile] = session
+    
+    def get(self, url, **kwargs):
+        """Try GET request with SSL fallbacks."""
+        return self._request_with_fallback('GET', url, **kwargs)
+    
+    def _request_with_fallback(self, method, url, **kwargs):
+        """Try request with different SSL configurations."""
+        last_error = None
+        
+        for profile in self.ssl_profiles:
+            session = self.sessions[profile]
+            try:
+                response = session.request(method, url, **kwargs)
+                # If we get a successful response, return it
+                if response.status_code < 500:
+                    return response
+            except Exception as e:
+                last_error = e
+                continue
+        
+        # If all SSL profiles failed, raise the last error
+        if last_error:
+            raise last_error
+        
+        raise requests.RequestException(f"All SSL profiles failed for {url}")
 
 class OptimizedSession:
     """Optimized HTTP session with connection pooling and retry logic."""
@@ -102,7 +211,8 @@ class OptimizedSession:
     def __init__(self, timeout_mode: str = 'normal'):
         self.timeout_mode = timeout_mode
         self.adaptive_timeout = AdaptiveTimeout()
-        self.session = self._create_optimized_session()
+        self.session = FallbackSession()
+        self.protocol_cache = {}  # Cache successful protocols for servers
         
     def _create_optimized_session(self) -> requests.Session:
         """Create an optimized requests session."""
@@ -153,7 +263,7 @@ class OptimizedSession:
         return session
     
     def get(self, url: str, **kwargs) -> requests.Response:
-        """Optimized GET request with adaptive timeouts."""
+        """Optimized GET request with adaptive timeouts and protocol rotation."""
         base_url = kwargs.get('base_url', url)
         timeout_config = self.adaptive_timeout.get_timeout_for_server(base_url)
         
@@ -166,7 +276,8 @@ class OptimizedSession:
                 read=timeout_config['read']
             )
             
-            response = self.session.get(url, **kwargs)
+            # Try protocol rotation if needed
+            response = self._get_with_protocol_rotation(url, **kwargs)
             response_time = time.time() - start_time
             
             # Update performance metrics
@@ -179,6 +290,61 @@ class OptimizedSession:
             # Update performance metrics for failure
             self.adaptive_timeout.update_performance(base_url, response_time, False)
             raise
+    
+    def _get_with_protocol_rotation(self, url: str, **kwargs) -> requests.Response:
+        """Try GET request with HTTP/HTTPS protocol rotation."""
+        from urllib.parse import urlparse
+        
+        parsed = urlparse(url)
+        domain = parsed.netloc
+        
+        # Check if we have a cached successful protocol for this domain
+        if domain in self.protocol_cache:
+            cached_protocol = self.protocol_cache[domain]
+            if cached_protocol != parsed.scheme:
+                # Use cached protocol
+                rotated_url = url.replace(f"{parsed.scheme}://", f"{cached_protocol}://")
+                try:
+                    response = self.session.get(rotated_url, **kwargs)
+                    if response.status_code < 500:
+                        return response
+                except:
+                    pass  # Fall through to normal rotation
+        
+        # Try original URL first
+        try:
+            response = self.session.get(url, **kwargs)
+            if response.status_code < 500:
+                # Cache successful protocol
+                self.protocol_cache[domain] = parsed.scheme
+                return response
+        except Exception:
+            pass
+        
+        # Try protocol rotation
+        if parsed.scheme == 'https':
+            # Try HTTP
+            http_url = url.replace("https://", "http://")
+            try:
+                response = self.session.get(http_url, **kwargs)
+                if response.status_code < 500:
+                    self.protocol_cache[domain] = 'http'
+                    return response
+            except Exception:
+                pass
+        elif parsed.scheme == 'http':
+            # Try HTTPS
+            https_url = url.replace("http://", "https://")
+            try:
+                response = self.session.get(https_url, **kwargs)
+                if response.status_code < 500:
+                    self.protocol_cache[domain] = 'https'
+                    return response
+            except Exception:
+                pass
+        
+        # If all attempts failed, raise the last error
+        raise requests.RequestException(f"All protocol attempts failed for {url}")
 
 def fast_dns_check(base_url: str) -> bool:
     """Fast DNS resolution check."""

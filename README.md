@@ -1,4 +1,4 @@
-# zone-new-companion v1.0.9
+# zone-new-companion v1.1.0
 
 Unified desktop IPTV companion app that merges Xtream and Stalker workflows into a single cross-platform PyQt6 application.
 
@@ -21,6 +21,16 @@ Unified desktop IPTV companion app that merges Xtream and Stalker workflows into
 - Confirmation dialog for reset actions.
 - Series hierarchy navigation (double-click series/season to drill down).
 - Right-click on item list to go back one level.
+
+## v1.1.0 SSL & Connection Improvements
+
+- **Multi-Profile SSL Handling**: 4 SSL configuration profiles (default, legacy, permissive, modern) for maximum compatibility
+- **SSL Fallback Strategy**: Automatic fallback through different SSL configurations when connection fails
+- **HTTP/HTTPS Protocol Rotation**: Automatic protocol switching with caching for optimal connection method
+- **Comprehensive Cipher Support**: Support for legacy and modern cipher suites including `ALL:@SECLEVEL=0`
+- **Connection Method Caching**: Remembers successful protocols per domain for faster subsequent connections
+- **Enhanced Error Recovery**: Better SSL error handling with multiple retry strategies
+- **Server-Specific Optimization**: Adaptive SSL configuration based on server response patterns
 
 ## v1.0.9 Improvements
 
