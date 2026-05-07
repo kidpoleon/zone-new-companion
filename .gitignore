@@ -7,6 +7,12 @@ __pycache__/
 *.pyo
 *.pyd
 *.log
+*.spec
 icon_gen_status.txt
 zone_new_companion/icon/app.png
 zone_new_companion/icon/app.ico
+.DS_Store
+*.egg-info/
+*.db
+*.sqlite
+*.sqlite3

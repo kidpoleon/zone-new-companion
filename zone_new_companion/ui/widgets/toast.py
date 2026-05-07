@@ -7,11 +7,12 @@ from PyQt6.QtWidgets import QLabel, QWidget
 
 
 class ToastLabel(QLabel):
-    """Top-right timed toast."""
+    """Centered toast below top bar."""
 
     def __init__(self, parent: QWidget) -> None:
         super().__init__(parent)
         self.setWindowFlag(Qt.WindowType.FramelessWindowHint, True)
+        self.setWindowFlag(Qt.WindowType.WindowStaysOnTopHint, True)
         self.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.setStyleSheet(
             "background:#253046;color:white;padding:8px 12px;border-radius:6px;",
@@ -24,6 +25,9 @@ class ToastLabel(QLabel):
         self.adjustSize()
         parent = self.parentWidget()
         if parent is not None:
-            self.move(parent.width() - self.width() - 18, 18)
+            # Position below top bar (menu bar height ~30px) and centered horizontally
+            x = (parent.width() - self.width()) // 2
+            y = 35  # Below top bar with some margin
+            self.move(x, y)
         self.show()
         QTimer.singleShot(timeout_ms, self.hide)

@@ -59,6 +59,9 @@ def run() -> None:
     window.verify_item_requested.connect(
         lambda tab_name, item: controller.verify_single_item(tab_name, item, on_success=window.notify, on_error=on_error),
     )
+    window.verify_all_channels_requested.connect(
+        lambda tab_name: controller.verify_all_channels(tab_name, on_success=window.notify, on_error=on_error),
+    )
     window.now_playing_requested.connect(lambda tab_name, item: controller.request_now_playing(tab_name, item))
     window.reset_requested.connect(lambda: _reset(window, controller))
 

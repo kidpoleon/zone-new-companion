@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from PyQt6.QtCore import pyqtSignal
 from PyQt6.QtWidgets import (
-    QComboBox,
     QFormLayout,
     QGroupBox,
     QHBoxLayout,
@@ -13,96 +12,148 @@ from PyQt6.QtWidgets import (
     QTextEdit,
     QVBoxLayout,
     QWidget,
+    QTabWidget,
 )
 
 from zone_new_companion.models import Credentials, PortalType
 
 
 class LoginPanel(QWidget):
-    """Collect connection parameters for both portal types."""
+    """Collect connection parameters for XTREAM, M3U, and STALKER APIs."""
 
     connect_clicked = pyqtSignal(object)
     reset_clicked = pyqtSignal()
 
     def __init__(self) -> None:
         super().__init__()
-        root = QHBoxLayout(self)
+        root = QVBoxLayout(self)
         root.setContentsMargins(8, 8, 8, 8)
 
-        self.form_group = QGroupBox("Connection")
-        form = QFormLayout()
-        self.form_group.setLayout(form)
+        # Create tab widget for different connection types
+        self.tab_widget = QTabWidget()
+        
+        # XTREAM API Tab
+        self.xtream_group = QGroupBox("XTREAM API")
+        xtream_form = QFormLayout()
+        self.xtream_group.setLayout(xtream_form)
 
-        self.portal_type_input = QComboBox()
-        self.portal_type_input.addItems([PortalType.XTREAM.value, PortalType.STALKER.value])
-        self.portal_type_input.setToolTip("Select backend protocol.")
-        self.portal_type_input.currentTextChanged.connect(self._update_field_visibility)
+        self.xtream_base_url = QLineEdit()
+        self.xtream_base_url.setPlaceholderText("http://example.com:8080")
+        self.xtream_base_url.setToolTip("XTREAM server URL without trailing slash")
 
-        self.base_url_input = QLineEdit()
-        self.base_url_input.setPlaceholderText("http://example.com")
-        self.base_url_input.setToolTip("Server host without spaces.")
+        self.xtream_username = QLineEdit()
+        self.xtream_password = QLineEdit()
+        self.xtream_password.setEchoMode(QLineEdit.EchoMode.Password)
 
-        self.username_input = QLineEdit()
-        self.password_input = QLineEdit()
-        self.password_input.setEchoMode(QLineEdit.EchoMode.Password)
-        self.mac_input = QLineEdit()
-        self.mac_input.setPlaceholderText("00:11:22:33:44:55")
+        xtream_form.addRow("Server URL", self.xtream_base_url)
+        xtream_form.addRow("Username", self.xtream_username)
+        xtream_form.addRow("Password", self.xtream_password)
 
-        form.addRow("Portal", self.portal_type_input)
-        form.addRow("Base URL", self.base_url_input)
-        form.addRow("Username", self.username_input)
-        form.addRow("Password", self.password_input)
-        form.addRow("MAC", self.mac_input)
+        # M3U Tab
+        self.m3u_group = QGroupBox("M3U Playlist")
+        m3u_form = QFormLayout()
+        self.m3u_group.setLayout(m3u_form)
 
-        buttons = QHBoxLayout()
+        self.m3u_url = QLineEdit()
+        self.m3u_url.setPlaceholderText("http://example.com/playlist.m3u8 or get.php?...")
+        self.m3u_url.setToolTip("M3U playlist URL or XTREAM get.php URL")
+
+        m3u_form.addRow("Playlist URL", self.m3u_url)
+
+        # STALKER API Tab
+        self.stalker_group = QGroupBox("STALKER API")
+        stalker_form = QFormLayout()
+        self.stalker_group.setLayout(stalker_form)
+
+        self.stalker_base_url = QLineEdit()
+        self.stalker_base_url.setPlaceholderText("http://example.com/stalker")
+        self.stalker_base_url.setToolTip("STALKER portal URL")
+
+        self.stalker_mac = QLineEdit()
+        self.stalker_mac.setPlaceholderText("00:11:22:33:44:55")
+        self.stalker_mac.setToolTip("MAC address for STALKER authentication")
+
+        stalker_form.addRow("Portal URL", self.stalker_base_url)
+        stalker_form.addRow("MAC Address", self.stalker_mac)
+
+        # Add tabs
+        self.tab_widget.addTab(self.xtream_group, "XTREAM API")
+        self.tab_widget.addTab(self.m3u_group, "M3U")
+        self.tab_widget.addTab(self.stalker_group, "STALKER API")
+
+        # Buttons
+        buttons_layout = QHBoxLayout()
         self.connect_button = QPushButton("Connect")
-        self.connect_button.setToolTip("Validate and load playlist.")
+        self.connect_button.setToolTip("Connect using selected configuration")
         self.reset_button = QPushButton("Reset")
-        self.reset_button.setToolTip("Clear form fields.")
-        buttons.addWidget(self.connect_button)
-        buttons.addWidget(self.reset_button)
-        form.addRow("", buttons)
+        self.reset_button.setToolTip("Clear all form fields")
+        buttons_layout.addWidget(self.connect_button)
+        buttons_layout.addWidget(self.reset_button)
 
-        self.info_group = QGroupBox("Credential Information")
+        # Info panel
+        self.info_group = QGroupBox("Connection Information")
         info_layout = QVBoxLayout()
         self.info_group.setLayout(info_layout)
         self.info_box = QTextEdit()
         self.info_box.setReadOnly(True)
-        self.info_box.setToolTip("Shows details for the last successful connection.")
+        self.info_box.setToolTip("Shows details for the last successful connection")
         self.info_box.setPlaceholderText(
-            "Connect successfully to view expiry, connections, domain, ports, timezone, and account status.",
+            "Connect successfully to view connection details and account information."
         )
+        self.info_box.setMaximumHeight(120)
         info_layout.addWidget(self.info_box)
-        self.info_group.setMinimumWidth(420)
 
-        root.addWidget(self.form_group, 0)
-        root.addWidget(self.info_group, 1)
+        # Add everything to main layout
+        root.addWidget(self.tab_widget)
+        root.addLayout(buttons_layout)
+        root.addWidget(self.info_group)
 
+        # Connect signals
         self.connect_button.clicked.connect(self._emit_credentials)
         self.reset_button.clicked.connect(self.reset_clicked.emit)
-        self._update_field_visibility(self.portal_type_input.currentText())
+
 
     def _emit_credentials(self) -> None:
-        portal = PortalType(self.portal_type_input.currentText())
+        """Emit credentials based on current tab."""
+        current_tab = self.tab_widget.currentIndex()
+        
+        if current_tab == 0:  # XTREAM API
+            portal = PortalType.XTREAM
+            base_url = self.xtream_base_url.text().strip()
+            username = self.xtream_username.text().strip()
+            password = self.xtream_password.text().strip()
+            mac_address = ""
+        elif current_tab == 1:  # M3U
+            portal = PortalType.M3U
+            base_url = self.m3u_url.text().strip()
+            username = ""
+            password = ""
+            mac_address = ""
+        else:  # STALKER API
+            portal = PortalType.STALKER
+            base_url = self.stalker_base_url.text().strip()
+            username = ""
+            password = ""
+            mac_address = self.stalker_mac.text().strip()
+
         payload = Credentials(
             name="Last Used",
-            base_url=self.base_url_input.text().strip(),
+            base_url=base_url,
             portal_type=portal,
-            username=self.username_input.text().strip(),
-            password=self.password_input.text().strip(),
-            mac_address=self.mac_input.text().strip(),
+            username=username,
+            password=password,
+            mac_address=mac_address,
         )
         self.connect_clicked.emit(payload)
 
     def clear(self) -> None:
         """Clear all editable fields."""
-        for edit in (
-            self.base_url_input,
-            self.username_input,
-            self.password_input,
-            self.mac_input,
-        ):
-            edit.clear()
+        self.xtream_base_url.clear()
+        self.xtream_username.clear()
+        self.xtream_password.clear()
+        self.m3u_url.clear()
+        self.stalker_base_url.clear()
+        self.stalker_mac.clear()
         self.info_box.clear()
 
     def set_connection_info(self, info_map: dict[str, str]) -> None:
@@ -113,17 +164,17 @@ class LoginPanel(QWidget):
         lines = [f"{key}: {value}" for key, value in info_map.items()]
         self.info_box.setPlainText("\n".join(lines))
 
-    def _update_field_visibility(self, portal_name: str) -> None:
-        is_stalker = portal_name == PortalType.STALKER.value
-        self.username_input.setEnabled(not is_stalker)
-        self.password_input.setEnabled(not is_stalker)
-        self.mac_input.setEnabled(is_stalker)
-        self.username_input.setToolTip(
-            "Required for Xtream connections." if not is_stalker else "Not required for Stalker mode.",
-        )
-        self.password_input.setToolTip(
-            "Required for Xtream connections." if not is_stalker else "Not required for Stalker mode.",
-        )
-        self.mac_input.setToolTip(
-            "Required for Stalker mode." if is_stalker else "Not required for Xtream mode.",
-        )
+    def populate_form(self, credentials: Credentials) -> None:
+        """Load credentials into appropriate form fields."""
+        if credentials.portal_type == PortalType.XTREAM:
+            self.tab_widget.setCurrentIndex(0)
+            self.xtream_base_url.setText(credentials.base_url)
+            self.xtream_username.setText(credentials.username)
+            self.xtream_password.setText(credentials.password)
+        elif credentials.portal_type == PortalType.M3U:
+            self.tab_widget.setCurrentIndex(1)
+            self.m3u_url.setText(credentials.base_url)
+        elif credentials.portal_type == PortalType.STALKER:
+            self.tab_widget.setCurrentIndex(2)
+            self.stalker_base_url.setText(credentials.base_url)
+            self.stalker_mac.setText(credentials.mac_address)

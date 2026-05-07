@@ -13,6 +13,7 @@ from PyQt6.QtCore import QThreadPool
 from zone_new_companion.config import AppConfig, ConfigStore
 from zone_new_companion.models import Credentials, MediaItem, PlaylistCategory, PortalType
 from zone_new_companion.services.base import PortalService
+from zone_new_companion.services.m3u_service import M3UService
 from zone_new_companion.services.player_launcher import launch_stream
 from zone_new_companion.services.stalker_service import StalkerService
 from zone_new_companion.services.stream_verifier import StreamVerifier
@@ -33,6 +34,7 @@ class AppController:
         self._thread_pool = QThreadPool.globalInstance()
         self._services: dict[PortalType, PortalService] = {
             PortalType.XTREAM: XtreamService(),
+            PortalType.M3U: M3UService(),
             PortalType.STALKER: StalkerService(),
         }
         self._verifier = StreamVerifier()
@@ -58,6 +60,8 @@ class AppController:
             not credentials.username or not credentials.password
         ):
             return "Xtream mode requires username and password."
+        if credentials.portal_type == PortalType.M3U and not credentials.base_url:
+            return "M3U mode requires a valid playlist URL."
         if credentials.portal_type == PortalType.STALKER and not credentials.mac_address:
             return "Stalker mode requires MAC address."
         if credentials.portal_type == PortalType.STALKER and not re.match(
@@ -322,6 +326,36 @@ class AppController:
             service = self._service_for(profile)
             result = self._verifier.verify_item(service, profile, item)
             return {item.id: result.status}
+
+        worker = TaskWorker(task)
+        worker.signals.succeeded.connect(lambda result_map: self._on_verify_done(tab_name, result_map, on_success))
+        worker.signals.failed.connect(lambda message: self._on_error(message, on_error))
+        self._thread_pool.start(worker)
+
+    def verify_all_channels(
+        self,
+        tab_name: str,
+        on_success: Callable[[str], None],
+        on_error: Callable[[str], None],
+    ) -> None:
+        """Verify all channels in the current tab efficiently."""
+        profile = self._state_store.state.active_profile
+        if profile is None:
+            on_error("No active profile.")
+            return
+
+        items = self._state_store.state.current_items.get(tab_name, [])
+        if not items:
+            on_error("No items to verify in this tab.")
+            return
+
+        self._state_store.update(status_text=f"Verifying all {len(items)} channels in {tab_name}...")
+
+        def task() -> dict[str, str]:
+            service = self._service_for(profile)
+            # Use optimized worker count for large batches
+            worker_count = min(24, max(8, len(items) // 10))
+            return self._verifier.verify_items(service, profile, items, workers=worker_count)
 
         worker = TaskWorker(task)
         worker.signals.succeeded.connect(lambda result_map: self._on_verify_done(tab_name, result_map, on_success))

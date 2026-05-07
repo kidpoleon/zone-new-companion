@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import subprocess
+import sys
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from typing import Iterable
@@ -134,12 +135,15 @@ class StreamVerifier:
             stream_url,
         ]
         try:
+            # Hide terminal window on Windows
+            creation_flags = 0x08000000 if sys.platform == "win32" else 0  # CREATE_NO_WINDOW
             completed = subprocess.run(
                 command,
                 capture_output=True,
                 text=True,
                 timeout=10,
                 check=False,
+                creationflags=creation_flags,
             )
             if completed.returncode != 0:
                 return False, False

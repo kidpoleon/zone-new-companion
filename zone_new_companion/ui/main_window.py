@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import sys
 from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QColor
 from PyQt6.QtWidgets import (
@@ -37,6 +38,7 @@ class MainWindow(QMainWindow):
     category_selected = pyqtSignal(str, object)
     item_activated = pyqtSignal(str, object)
     verify_item_requested = pyqtSignal(str, object)
+    verify_all_channels_requested = pyqtSignal(str)
     now_playing_requested = pyqtSignal(str, object)
     back_requested = pyqtSignal(str)
     reset_requested = pyqtSignal()
@@ -46,6 +48,32 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.setWindowTitle(f"zone-new-companion v{__version__}")
         self.setMinimumSize(1000, 650)
+        
+        # Set window flags based on OS
+        if sys.platform == "win32":
+            # Windows: Add minimize/maximize buttons, keep frame
+            self.setWindowFlags(
+                Qt.WindowType.Window |
+                Qt.WindowType.WindowMinimizeButtonHint |
+                Qt.WindowType.WindowMaximizeButtonHint |
+                Qt.WindowType.WindowCloseButtonHint
+            )
+        elif sys.platform == "darwin":
+            # macOS: Native window controls
+            self.setWindowFlags(
+                Qt.WindowType.Window |
+                Qt.WindowType.WindowMinimizeButtonHint |
+                Qt.WindowType.WindowMaximizeButtonHint |
+                Qt.WindowType.WindowCloseButtonHint
+            )
+        else:
+            # Linux: Standard window controls
+            self.setWindowFlags(
+                Qt.WindowType.Window |
+                Qt.WindowType.WindowMinimizeButtonHint |
+                Qt.WindowType.WindowMaximizeButtonHint |
+                Qt.WindowType.WindowCloseButtonHint
+            )
         self._help_menu = QMenu("Help", self)
         self._history_menu = QMenu("History", self)
         self.menuBar().addMenu(self._help_menu)
@@ -67,7 +95,20 @@ class MainWindow(QMainWindow):
 
         right = QWidget()
         right_layout = QVBoxLayout(right)
+        
+        # Create tab widget with verify all button
+        tab_container = QWidget()
+        tab_container_layout = QHBoxLayout(tab_container)
+        tab_container_layout.setContentsMargins(0, 0, 0, 0)
+        
         self.tab_widget = QTabWidget()
+        self.verify_all_button = QPushButton("Verify All Channels")
+        self.verify_all_button.setToolTip("Verify all channels in current tab")
+        self.verify_all_button.clicked.connect(self._emit_verify_all_channels)
+        
+        tab_container_layout.addWidget(self.tab_widget, 1)
+        tab_container_layout.addWidget(self.verify_all_button)
+        
         self.category_lists: dict[str, QListWidget] = {}
         self.item_tables: dict[str, QTableWidget] = {}
         for tab_name in ("Live", "Movies", "Series"):
@@ -101,7 +142,7 @@ class MainWindow(QMainWindow):
             )
             table.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
             table.customContextMenuRequested.connect(lambda _pos, name=tab_name: self.back_requested.emit(name))
-        right_layout.addWidget(self.tab_widget)
+        right_layout.addWidget(tab_container)
         layout.addWidget(right, 1)
 
         self.progress = QProgressBar()
@@ -229,3 +270,9 @@ class MainWindow(QMainWindow):
             return
         media = cell.data(Qt.ItemDataRole.UserRole)
         self.now_playing_requested.emit(tab_name, media)
+
+    def _emit_verify_all_channels(self) -> None:
+        """Emit verify all channels for current tab."""
+        current_tab = self.tab_widget.currentText()
+        if current_tab in ("Live", "Movies", "Series"):
+            self.verify_all_channels_requested.emit(current_tab)

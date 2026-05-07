@@ -1,3 +1,3 @@
 """zone-new-companion package."""
 
-__version__ = "1.0.2"
+__version__ = "1.0.3"

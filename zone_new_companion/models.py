@@ -12,6 +12,7 @@ class PortalType(str, Enum):
     """Supported portal modes."""
 
     XTREAM = "xtream"
+    M3U = "m3u"
     STALKER = "stalker"
 
 
