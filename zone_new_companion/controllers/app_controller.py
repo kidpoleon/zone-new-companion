@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 import logging
-import re
 from datetime import datetime
 from typing import Callable
 from urllib.parse import parse_qs, urlparse
+
+from zone_new_companion.services.logger_service import logger_service
 
 from PyQt6.QtCore import QThreadPool
 
@@ -129,31 +130,45 @@ class AppController:
 
     def connect(self, credentials: Credentials, on_success: Callable[[str], None], on_error: Callable[[str], None]) -> None:
         """Load categories asynchronously and persist profile."""
-        credentials = self._normalize_credentials(credentials)
-        self._config.last_input = credentials
-        self._config_store.save(self._config)
-        validation_error = self._validate_input(credentials)
-        if validation_error:
-            on_error(validation_error)
-            return
+        try:
+            logger_service.info(f"Starting connection to {credentials.base_url}")
+            logger_service.debug(f"Portal type: {credentials.portal_type}")
+            
+            credentials = self._normalize_credentials(credentials)
+            self._config.last_input = credentials
+            self._config_store.save(self._config)
+            validation_error = self._validate_input(credentials)
+            if validation_error:
+                on_error(validation_error)
+                return
 
-        self._state_store.update(
-            active_profile=credentials,
-            busy=True,
-            status_text=f"Connecting to {credentials.base_url}",
-        )
-
-        def task() -> tuple[dict[str, list[PlaylistCategory]], dict[str, str]]:
             service = self._service_for(credentials)
-            categories = service.fetch_categories(credentials)
-            info = service.fetch_connection_info(credentials)
-            return categories, info
+            
+            logger_service.info(f"Using service: {service.__class__.__name__}")
+            
+            self._state_store.update(
+                active_profile=credentials,
+                busy=True,
+                status_text=f"Connecting to {credentials.base_url}",
+            )
 
-        worker = TaskWorker(task)
-        worker.signals.succeeded.connect(lambda payload: self._on_connected(credentials, payload, on_success))
-        worker.signals.failed.connect(lambda message: self._on_error(message, on_error))
-        worker.signals.finished.connect(lambda: self._state_store.update(busy=False))
-        self._thread_pool.start(worker)
+            def task() -> tuple[dict[str, list[PlaylistCategory]], dict[str, str]]:
+                logger_service.debug("Fetching categories and connection info...")
+                categories = service.fetch_categories(credentials)
+                info = service.fetch_connection_info(credentials)
+                logger_service.info(f"Retrieved {len(categories)} categories")
+                return categories, info
+
+            worker = TaskWorker(task)
+            worker.signals.succeeded.connect(lambda payload: self._on_connected(credentials, payload, on_success))
+            worker.signals.failed.connect(lambda message: self._on_error(message, on_error))
+            worker.signals.finished.connect(lambda: self._state_store.update(busy=False))
+            self._thread_pool.start(worker)
+            
+            logger_service.info("Connection task started")
+        except Exception as exc:
+            logger_service.error(f"Connection failed: {exc}")
+            on_error(str(exc))
 
     def _on_connected(
         self,
@@ -423,6 +438,7 @@ class AppController:
     ) -> None:
         """Cancel all ongoing verification processes."""
         try:
+            logger_service.info("Cancelling all verification processes")
             # Clear verification queue and stop background verification
             self._state_store.update(
                 background_verification_active=False,
@@ -431,8 +447,34 @@ class AppController:
                 busy=False
             )
             on_success("All verification processes cancelled.")
+            logger_service.info("Verification processes cancelled successfully")
         except Exception as e:
+            logger_service.error(f"Failed to cancel verification: {e}")
             on_error(f"Failed to cancel verification: {e}")
+
+    def clear_logs(self) -> None:
+        """Clear all logs."""
+        logger_service.clear_logs()
+
+    def show_logs(self) -> None:
+        """Show logs window."""
+        from zone_new_companion.ui.log_viewer import LogViewerDialog
+        log_viewer = LogViewerDialog()
+        log_viewer.exec()
+
+    def save_logs(self) -> None:
+        """Save logs to file."""
+        from datetime import datetime
+        from pathlib import Path
+        
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        default_path = Path.home() / f"zone_new_companion_logs_{timestamp}.txt"
+        
+        try:
+            logger_service.save_logs_to_file(default_path)
+            logger_service.info(f"Logs saved to {default_path}")
+        except Exception as e:
+            logger_service.error(f"Failed to save logs: {e}")
 
     def request_now_playing(
         self,

@@ -41,6 +41,9 @@ class MainWindow(QMainWindow):
     verify_all_channels_requested = pyqtSignal(str)
     verify_tab_requested = pyqtSignal(str)
     verify_cancel_requested = pyqtSignal()
+    logs_clear_requested = pyqtSignal()
+    logs_show_requested = pyqtSignal()
+    logs_save_requested = pyqtSignal()
     now_playing_requested = pyqtSignal(str, object)
     back_requested = pyqtSignal(str)
     reset_requested = pyqtSignal()
@@ -78,10 +81,12 @@ class MainWindow(QMainWindow):
             )
         self._help_menu = QMenu("Help", self)
         self._history_menu = QMenu("History", self)
+        self._logs_menu = QMenu("Logs", self)
         self._verify_menu = QMenu("Verify", self)
         self.menuBar().addMenu(self._help_menu)
         self.menuBar().addMenu(self._verify_menu)
         self.menuBar().addMenu(self._history_menu)
+        self.menuBar().addMenu(self._logs_menu)
 
         self._help_info_action = self._help_menu.addAction("Info")
         self._help_exit_action = self._help_menu.addAction("Exit")
@@ -101,6 +106,18 @@ class MainWindow(QMainWindow):
         
         self._verify_series_action = self._verify_menu.addAction("Verify Series")
         self._verify_series_action.triggered.connect(lambda: self._emit_verify_tab("Series"))
+
+        # Logs menu actions
+        self._logs_clear_action = self._logs_menu.addAction("Clear Logs")
+        self._logs_clear_action.triggered.connect(self._emit_clear_logs)
+        
+        self._logs_menu.addSeparator()
+        
+        self._logs_show_action = self._logs_menu.addAction("Show Log Window")
+        self._logs_show_action.triggered.connect(self._emit_show_logs)
+        
+        self._logs_save_action = self._logs_menu.addAction("Save Logs to File")
+        self._logs_save_action.triggered.connect(self._emit_save_logs)
 
         self._toast = ToastLabel(self)
         central = QWidget()
@@ -156,6 +173,22 @@ class MainWindow(QMainWindow):
 
         self.progress = QProgressBar()
         self.progress.setRange(0, 0)
+        self.progress.setMinimumHeight(25)  # Increase height for better visibility
+        self.progress.setMinimumWidth(300)  # Increase width for better visibility
+        self.progress.setStyleSheet("""
+            QProgressBar {
+                border: 1px solid #555;
+                border-radius: 3px;
+                text-align: center;
+                font-weight: bold;
+                background-color: #2a2a2a;
+                color: white;
+            }
+            QProgressBar::chunk {
+                background-color: #4CAF50;
+                border-radius: 2px;
+            }
+        """)
         self.progress.hide()
         self.status_label = QLabel("Ready")
         status = QStatusBar()
@@ -175,7 +208,23 @@ class MainWindow(QMainWindow):
     def apply_state(self, state: AppState) -> None:
         """Render state changes."""
         self.status_label.setText(state.status_text)
-        self.progress.setVisible(state.busy)
+        
+        # Handle progress bar visibility and text
+        if state.busy:
+            self.progress.show()
+            # Show verification progress if available
+            if "Verifying" in state.status_text:
+                self.progress.setRange(0, 0)  # Indeterminate progress
+                self.progress.setFormat("Verifying...")
+            elif "Priority verifying" in state.status_text:
+                self.progress.setRange(0, 0)  # Indeterminate progress
+                self.progress.setFormat("Priority Verification...")
+            else:
+                self.progress.setRange(0, 0)  # Indeterminate progress
+                self.progress.setFormat("Loading...")
+        else:
+            self.progress.hide()
+            self.progress.setFormat("")
         self.login_panel.set_connection_info(state.credential_info)
         for tab_name, categories in state.categories.items():
             list_widget = self.category_lists[tab_name]
@@ -331,3 +380,15 @@ class MainWindow(QMainWindow):
     def _emit_cancel_verification(self) -> None:
         """Emit cancel verification request."""
         self.verify_cancel_requested.emit()
+
+    def _emit_clear_logs(self) -> None:
+        """Emit clear logs request."""
+        self.logs_clear_requested.emit()
+
+    def _emit_show_logs(self) -> None:
+        """Emit show logs window request."""
+        self.logs_show_requested.emit()
+
+    def _emit_save_logs(self) -> None:
+        """Emit save logs request."""
+        self.logs_save_requested.emit()

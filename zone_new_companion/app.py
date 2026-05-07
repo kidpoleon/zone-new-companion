@@ -68,6 +68,9 @@ def run() -> None:
     window.verify_cancel_requested.connect(
         lambda: controller.cancel_verification(on_success=window.notify, on_error=on_error),
     )
+    window.logs_clear_requested.connect(lambda: controller.clear_logs())
+    window.logs_show_requested.connect(lambda: controller.show_logs())
+    window.logs_save_requested.connect(lambda: controller.save_logs())
     window.now_playing_requested.connect(lambda tab_name, item: controller.request_now_playing(tab_name, item))
     window.reset_requested.connect(lambda: _reset(window, controller))
 

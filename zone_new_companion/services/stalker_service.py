@@ -11,6 +11,7 @@ import requests
 
 from zone_new_companion.models import Credentials, EpgEntry, MediaItem, PlaylistCategory
 from zone_new_companion.services.base import PortalService
+from zone_new_companion.services.logger_service import logger_service
 from zone_new_companion.services.network import DEFAULT_TIMEOUT, create_session, normalize_url
 
 
@@ -77,16 +78,58 @@ class StalkerService(PortalService):
         return list(dict.fromkeys(candidates))
 
     def _extract_stream_url(self, raw_value: str, credentials: Credentials) -> str:
+        logger_service.debug(f"Extracting stream URL from: {raw_value}")
+        
+        if not raw_value:
+            logger_service.warning("Empty raw_value provided to _extract_stream_url")
+            return ""
+            
         stream_url = raw_value.strip()
+        
+        # Remove ffmpeg prefix and clean up
         stream_url = re.sub(r"(?i)^ffmpeg\s*", "", stream_url).strip()
         stream_url = stream_url.strip("\"'")
-        match = re.search(r"(https?://[^\s\"']+)", stream_url, flags=re.IGNORECASE)
-        if match:
-            return match.group(1)
+        
+        # Try to find HTTP/HTTPS URLs first
+        http_match = re.search(r"(https?://[^\s\"']+)", stream_url, flags=re.IGNORECASE)
+        if http_match:
+            extracted = http_match.group(1)
+            logger_service.debug(f"Found HTTP URL: {extracted}")
+            return extracted
+            
+        # Try to find rtsp/rtmp URLs
+        rtsp_match = re.search(r"(rtsp://[^\s\"']+)", stream_url, flags=re.IGNORECASE)
+        if rtsp_match:
+            extracted = rtsp_match.group(1)
+            logger_service.debug(f"Found RTSP URL: {extracted}")
+            return extracted
+            
+        rtmp_match = re.search(r"(rtmp://[^\s\"']+)", stream_url, flags=re.IGNORECASE)
+        if rtmp_match:
+            extracted = rtmp_match.group(1)
+            logger_service.debug(f"Found RTMP URL: {extracted}")
+            return extracted
+        
+        # Handle relative paths
         if stream_url.startswith("/"):
-            return normalize_url(credentials.base_url, stream_url)
-        if stream_url and not re.match(r"^https?://", stream_url, flags=re.IGNORECASE):
-            return normalize_url(credentials.base_url, stream_url)
+            absolute_url = normalize_url(credentials.base_url, stream_url)
+            logger_service.debug(f"Converted relative path to absolute: {absolute_url}")
+            return absolute_url
+            
+        # Handle protocol-relative URLs
+        if stream_url.startswith("//"):
+            absolute_url = f"https:{stream_url}"
+            logger_service.debug(f"Converted protocol-relative URL: {absolute_url}")
+            return absolute_url
+            
+        # Handle non-URL but non-empty strings (might be direct paths)
+        if stream_url and not re.match(r"^(https?|rtsp|rtmp)://", stream_url, flags=re.IGNORECASE):
+            # Try to construct absolute URL
+            absolute_url = normalize_url(credentials.base_url, stream_url)
+            logger_service.debug(f"Constructed absolute URL from relative: {absolute_url}")
+            return absolute_url
+            
+        logger_service.warning(f"Could not extract valid URL from: {raw_value}")
         return stream_url
 
     def fetch_categories(self, credentials: Credentials) -> dict[str, list[PlaylistCategory]]:
@@ -148,19 +191,30 @@ class StalkerService(PortalService):
         ]
 
     def resolve_stream_url(self, credentials: Credentials, item: MediaItem) -> str:
+        logger_service.info(f"Resolving stream URL for {item.name} (type: {item.item_type})")
         self._ensure_token(credentials)
+        
         cmd = str(item.metadata.get("cmd", "")).strip()
+        logger_service.debug(f"Original CMD: {cmd}")
+        
         if item.item_type == "episode" and not cmd:
             series_cmd = str(item.metadata.get("series_cmd", "")).strip()
             episode_number = str(item.metadata.get("episode_number", "")).strip()
             if series_cmd and episode_number:
                 cmd = f"{series_cmd}{episode_number}"
+                logger_service.debug(f"Constructed episode CMD: {cmd}")
+        
         if not cmd:
+            logger_service.error(f"No CMD found for item {item.name}")
             raise ValueError("Missing stream command in selected item.")
+            
         encoded = quote(cmd)
         stream_type = "itv" if item.item_type == "channel" else "vod"
+        logger_service.debug(f"Stream type: {stream_type}, encoded CMD: {encoded}")
+        
         last_error: Exception | None = None
-        for endpoint in self._portal_candidates(credentials):
+        for i, endpoint in enumerate(self._portal_candidates(credentials)):
+            logger_service.debug(f"Trying endpoint {i+1}: {endpoint}")
             try:
                 response = self._session.get(
                     endpoint,
@@ -174,16 +228,32 @@ class StalkerService(PortalService):
                     cookies=self._cookies(credentials),
                     timeout=DEFAULT_TIMEOUT,
                 )
+                logger_service.debug(f"Response status: {response.status_code}")
                 response.raise_for_status()
+                
                 js = response.json().get("js", {})
-                stream_url = str(js.get("url") or js.get("cmd") or "").strip()
-                stream_url = self._extract_stream_url(stream_url, credentials)
+                logger_service.debug(f"Response JSON: {js}")
+                
+                raw_stream_url = str(js.get("url") or js.get("cmd") or "").strip()
+                logger_service.debug(f"Raw stream URL: {raw_stream_url}")
+                
+                stream_url = self._extract_stream_url(raw_stream_url, credentials)
+                logger_service.debug(f"Processed stream URL: {stream_url}")
+                
                 if stream_url:
+                    logger_service.info(f"Successfully resolved stream URL: {stream_url}")
                     return stream_url
+                else:
+                    logger_service.warning(f"Empty stream URL from endpoint {i+1}")
+                    
             except (requests.RequestException, ValueError, KeyError, TypeError) as exc:
+                logger_service.warning(f"Endpoint {i+1} failed: {exc}")
                 last_error = exc
                 continue
-        raise ValueError(f"Unable to create stream link: {last_error}")
+                
+        error_msg = f"Unable to create stream link for {item.name}: {last_error}"
+        logger_service.error(error_msg)
+        raise ValueError(error_msg)
 
     def fetch_connection_info(self, credentials: Credentials) -> dict[str, str]:
         self._ensure_token(credentials)
