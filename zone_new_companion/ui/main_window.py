@@ -206,11 +206,7 @@ class MainWindow(QMainWindow):
 
     def populate_form(self, credentials: Credentials) -> None:
         """Load credentials into form."""
-        self.login_panel.portal_type_input.setCurrentText(credentials.portal_type.value)
-        self.login_panel.base_url_input.setText(credentials.base_url)
-        self.login_panel.username_input.setText(credentials.username)
-        self.login_panel.password_input.setText(credentials.password)
-        self.login_panel.mac_input.setText(credentials.mac_address)
+        self.login_panel.populate_form(credentials)
 
     def set_history_actions(self, labels: list[str]) -> None:
         """Populate top menu history actions."""

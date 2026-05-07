@@ -19,16 +19,16 @@ class M3UService(PortalService):
     def __init__(self) -> None:
         self._session = create_session()
 
-    def fetch_categories(self, credentials: Credentials) -> list[PlaylistCategory]:
+    def fetch_categories(self, credentials: Credentials) -> dict[str, list[PlaylistCategory]]:
         """Extract categories from M3U playlist."""
         try:
             content = self._fetch_playlist_content(credentials.base_url)
             categories = self._parse_categories(content)
-            return categories
+            return {"Live": categories, "Movies": [], "Series": []}
         except (RequestException, ValueError) as e:
             raise RuntimeError(f"Failed to fetch M3U categories: {e}")
 
-    def fetch_category_items(self, credentials: Credentials, category: PlaylistCategory) -> list[MediaItem]:
+    def fetch_items(self, credentials: Credentials, category: PlaylistCategory) -> list[MediaItem]:
         """Extract items for a specific category from M3U playlist."""
         try:
             content = self._fetch_playlist_content(credentials.base_url)
@@ -49,7 +49,7 @@ class M3UService(PortalService):
         """M3U playlists don't support EPG."""
         return []
 
-    def get_account_info(self, credentials: Credentials) -> dict[str, str]:
+    def fetch_connection_info(self, credentials: Credentials) -> dict[str, str]:
         """M3U playlists don't have account info."""
         return {"Type": "M3U Playlist", "URL": credentials.base_url}
 
