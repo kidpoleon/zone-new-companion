@@ -12,13 +12,14 @@ import requests
 from zone_new_companion.models import Credentials, EpgEntry, MediaItem, PlaylistCategory
 from zone_new_companion.services.base import PortalService
 from zone_new_companion.services.network import DEFAULT_TIMEOUT, create_session, normalize_url
+from zone_new_companion.services.network_optimizer import OptimizedSession
 
 
 class XtreamService(PortalService):
     """Use Xtream `player_api.php` endpoints."""
 
     def __init__(self) -> None:
-        self._session = create_session()
+        self._session = OptimizedSession()
         self._xmltv_cache: bytes | None = None
         self._player_api_endpoint: str | None = None
 
@@ -218,7 +219,7 @@ class XtreamService(PortalService):
                 credentials.base_url,
                 f"xmltv.php?username={credentials.username}&password={credentials.password}",
             )
-            response = self._session.get(epg_url, timeout=DEFAULT_TIMEOUT)
+            response = self._session.session.get(epg_url, timeout=DEFAULT_TIMEOUT)
             response.raise_for_status()
             self._xmltv_cache = response.content
         if self._xmltv_cache is None:

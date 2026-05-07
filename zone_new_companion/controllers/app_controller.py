@@ -458,10 +458,8 @@ class AppController:
         logger_service.clear_logs()
 
     def show_logs(self) -> None:
-        """Show logs window."""
-        from zone_new_companion.ui.log_viewer import LogViewerDialog
-        log_viewer = LogViewerDialog()
-        log_viewer.exec()
+        """Show logs window - disabled for performance."""
+        pass
 
     def save_logs(self) -> None:
         """Save logs to file."""

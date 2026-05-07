@@ -13,13 +13,14 @@ from zone_new_companion.models import Credentials, EpgEntry, MediaItem, Playlist
 from zone_new_companion.services.base import PortalService
 from zone_new_companion.services.logger_service import logger_service
 from zone_new_companion.services.network import DEFAULT_TIMEOUT, create_session, normalize_url
+from zone_new_companion.services.network_optimizer import OptimizedSession
 
 
 class StalkerService(PortalService):
     """Use Stalker handshake + load.php APIs."""
 
     def __init__(self) -> None:
-        self._session = create_session()
+        self._session = OptimizedSession()
         self._token = ""
         self._token_key = ""
 
@@ -76,7 +77,7 @@ class StalkerService(PortalService):
         )
         
         try:
-            response = self._session.get(
+            response = self._session.session.get(
                 handshake_url,
                 cookies={
                     "mac": credentials.mac_address,
@@ -182,7 +183,7 @@ class StalkerService(PortalService):
             "Series": ("series", "get_categories"),
         }
         for tab, (portal_type, action) in requests_by_tab.items():
-            response = self._session.get(
+            response = self._session.session.get(
                 base,
                 params={"type": portal_type, "action": action, "JsHttpRequest": "1-xml"},
                 headers=self._headers(),
@@ -210,7 +211,7 @@ class StalkerService(PortalService):
         else:
             query = {"type": "vod", "action": "get_ordered_list", "category": category.id}
             item_type = "vod" if category.media_kind == "movies" else "series"
-        response = self._session.get(
+        response = self._session.session.get(
             base,
             params={**query, "JsHttpRequest": "1-xml"},
             headers=self._headers(),
@@ -256,7 +257,7 @@ class StalkerService(PortalService):
         for i, endpoint in enumerate(self._portal_candidates(credentials)):
             logger_service.debug(f"Trying endpoint {i+1}: {endpoint}")
             try:
-                response = self._session.get(
+                response = self._session.session.get(
                     endpoint,
                     params={
                         "type": stream_type,
@@ -299,7 +300,7 @@ class StalkerService(PortalService):
         info_url = normalize_url(credentials.base_url, "portal.php?type=account_info&action=get_main_info&JsHttpRequest=1-xml")
         
         try:
-            response = self._session.get(
+            response = self._session.session.get(
                 info_url,
                 headers=self._headers(),
                 cookies=self._cookies(credentials),
@@ -354,7 +355,7 @@ class StalkerService(PortalService):
         if not channel_id:
             return []
         endpoint = normalize_url(credentials.base_url, "portal.php")
-        response = self._session.get(
+        response = self._session.session.get(
             endpoint,
             params={
                 "type": "itv",
@@ -395,7 +396,7 @@ class StalkerService(PortalService):
             return ""
         endpoint = self._portal_candidates(credentials)[0]
         try:
-            response = self._session.get(
+            response = self._session.session.get(
                 endpoint,
                 params={
                     "type": "itv",
@@ -437,7 +438,7 @@ class StalkerService(PortalService):
         self._ensure_token(credentials)
         base = normalize_url(credentials.base_url, "portal.php")
         if item.item_type == "series":
-            response = self._session.get(
+            response = self._session.session.get(
                 base,
                 params={
                     "type": "vod",
@@ -472,7 +473,7 @@ class StalkerService(PortalService):
             return season_items
 
         if item.item_type == "season":
-            response = self._session.get(
+            response = self._session.session.get(
                 base,
                 params={
                     "type": "vod",

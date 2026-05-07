@@ -42,7 +42,7 @@ class MainWindow(QMainWindow):
     verify_tab_requested = pyqtSignal(str)
     verify_cancel_requested = pyqtSignal()
     logs_clear_requested = pyqtSignal()
-    logs_show_requested = pyqtSignal()
+    # logs_show_requested signal removed for performance
     logs_save_requested = pyqtSignal()
     now_playing_requested = pyqtSignal(str, object)
     back_requested = pyqtSignal(str)
@@ -113,8 +113,7 @@ class MainWindow(QMainWindow):
         
         self._logs_menu.addSeparator()
         
-        self._logs_show_action = self._logs_menu.addAction("Show Log Window")
-        self._logs_show_action.triggered.connect(self._emit_show_logs)
+        # Log viewer removed for performance
         
         self._logs_save_action = self._logs_menu.addAction("Save Logs to File")
         self._logs_save_action.triggered.connect(self._emit_save_logs)
@@ -385,9 +384,7 @@ class MainWindow(QMainWindow):
         """Emit clear logs request."""
         self.logs_clear_requested.emit()
 
-    def _emit_show_logs(self) -> None:
-        """Emit show logs window request."""
-        self.logs_show_requested.emit()
+    # Show logs method removed for performance
 
     def _emit_save_logs(self) -> None:
         """Emit save logs request."""
