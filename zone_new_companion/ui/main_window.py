@@ -39,6 +39,8 @@ class MainWindow(QMainWindow):
     item_activated = pyqtSignal(str, object)
     verify_item_requested = pyqtSignal(str, object)
     verify_all_channels_requested = pyqtSignal(str)
+    verify_tab_requested = pyqtSignal(str)
+    verify_cancel_requested = pyqtSignal()
     now_playing_requested = pyqtSignal(str, object)
     back_requested = pyqtSignal(str)
     reset_requested = pyqtSignal()
@@ -76,12 +78,29 @@ class MainWindow(QMainWindow):
             )
         self._help_menu = QMenu("Help", self)
         self._history_menu = QMenu("History", self)
+        self._verify_menu = QMenu("Verify", self)
         self.menuBar().addMenu(self._help_menu)
+        self.menuBar().addMenu(self._verify_menu)
         self.menuBar().addMenu(self._history_menu)
 
         self._help_info_action = self._help_menu.addAction("Info")
         self._help_exit_action = self._help_menu.addAction("Exit")
         self._help_exit_action.triggered.connect(self.close)
+
+        # Verify menu actions
+        self._verify_cancel_action = self._verify_menu.addAction("Cancel Verification")
+        self._verify_cancel_action.triggered.connect(self._emit_cancel_verification)
+        
+        self._verify_menu.addSeparator()
+        
+        self._verify_live_action = self._verify_menu.addAction("Verify Live")
+        self._verify_live_action.triggered.connect(lambda: self._emit_verify_tab("Live"))
+        
+        self._verify_movies_action = self._verify_menu.addAction("Verify Movies")
+        self._verify_movies_action.triggered.connect(lambda: self._emit_verify_tab("Movies"))
+        
+        self._verify_series_action = self._verify_menu.addAction("Verify Series")
+        self._verify_series_action.triggered.connect(lambda: self._emit_verify_tab("Series"))
 
         self._toast = ToastLabel(self)
         central = QWidget()
@@ -96,40 +115,8 @@ class MainWindow(QMainWindow):
         right = QWidget()
         right_layout = QVBoxLayout(right)
         
-        # Create tab widget with verify all button
-        tab_container = QWidget()
-        tab_container_layout = QVBoxLayout(tab_container)
-        tab_container_layout.setContentsMargins(0, 0, 0, 0)
-        
+        # Create tab widget (verify button moved to titlebar menu)
         self.tab_widget = QTabWidget()
-        self.verify_all_button = QPushButton("🔍")
-        self.verify_all_button.setToolTip("Verify all channels in current tab")
-        self.verify_all_button.clicked.connect(self._emit_verify_all_channels)
-        self.verify_all_button.setMaximumWidth(60)
-        self.verify_all_button.setStyleSheet("""
-            QPushButton {
-                font-size: 18px;
-                padding: 8px;
-                border-radius: 4px;
-                background-color: #3a3a3a;
-                color: white;
-            }
-            QPushButton:hover {
-                background-color: #4a4a4a;
-            }
-            QPushButton:pressed {
-                background-color: #2a2a2a;
-            }
-        """)
-        
-        # Create a horizontal layout for the button to center it
-        button_container = QWidget()
-        button_layout = QHBoxLayout(button_container)
-        button_layout.setContentsMargins(0, 5, 0, 5)
-        button_layout.addWidget(self.verify_all_button)
-        
-        tab_container_layout.addWidget(self.tab_widget, 1)
-        tab_container_layout.addWidget(button_container)
         
         self.category_lists: dict[str, QListWidget] = {}
         self.item_tables: dict[str, QTableWidget] = {}
@@ -164,7 +151,7 @@ class MainWindow(QMainWindow):
             )
             table.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
             table.customContextMenuRequested.connect(lambda _pos, name=tab_name: self.back_requested.emit(name))
-        right_layout.addWidget(tab_container)
+        right_layout.addWidget(self.tab_widget)
         layout.addWidget(right, 1)
 
         self.progress = QProgressBar()
@@ -207,7 +194,10 @@ class MainWindow(QMainWindow):
                 name_item.setData(Qt.ItemDataRole.UserRole, media)
                 now_text = state.now_playing.get(tab_name, {}).get(media.id, "")
                 now_item = QTableWidgetItem(now_text)
-                status = state.verification_results.get(tab_name, {}).get(media.id, "")
+                # Use persistent verification results first, fallback to current tab results
+                status = state.persistent_verification_results.get(media.id, "")
+                if not status:
+                    status = state.verification_results.get(tab_name, {}).get(media.id, "")
                 status_item = QTableWidgetItem(status)
                 table.setItem(row, 0, name_item)
                 table.setItem(row, 1, now_item)
@@ -332,3 +322,12 @@ class MainWindow(QMainWindow):
         current_tab = self.tab_widget.tabText(current_index)
         if current_tab in ("Live", "Movies", "Series"):
             self.verify_all_channels_requested.emit(current_tab)
+
+    def _emit_verify_tab(self, tab_name: str) -> None:
+        """Emit verify request for specific tab."""
+        if tab_name in ("Live", "Movies", "Series"):
+            self.verify_tab_requested.emit(tab_name)
+
+    def _emit_cancel_verification(self) -> None:
+        """Emit cancel verification request."""
+        self.verify_cancel_requested.emit()

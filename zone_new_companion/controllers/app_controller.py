@@ -350,12 +350,21 @@ class AppController:
             on_error("Item is not a playable stream.")
             return
 
-        self._state_store.update(status_text=f"Verifying {item.name}...")
+        self._state_store.update(
+            status_text=f"Priority verifying {item.name}...",
+            priority_verification_active=True
+        )
 
         def task() -> dict[str, str]:
             service = self._service_for(profile)
-            result = self._verifier.verify_item(service, profile, item)
-            return {item.id: result.status}
+            # Increase threads for priority verification
+            original_max = self._thread_pool.maxThreadCount()
+            self._thread_pool.setMaxThreadCount(original_max + 4)
+            try:
+                result = self._verifier.verify_item(service, profile, item)
+                return {item.id: result.status}
+            finally:
+                self._thread_pool.setMaxThreadCount(original_max)
 
         worker = TaskWorker(task)
         worker.signals.succeeded.connect(lambda result_map: self._on_verify_done(tab_name, result_map, on_success))
@@ -383,14 +392,47 @@ class AppController:
 
         def task() -> dict[str, str]:
             service = self._service_for(profile)
-            # Use optimized worker count for large batches
-            worker_count = min(24, max(8, len(items) // 10))
-            return self._verifier.verify_items(service, profile, items, workers=worker_count)
+            # Multiply threads by 2 for verify all requests
+            original_max = self._thread_pool.maxThreadCount()
+            self._thread_pool.setMaxThreadCount(original_max * 2)
+            try:
+                # Use optimized worker count for large batches
+                worker_count = min(48, max(16, len(items) // 5))
+                return self._verifier.verify_items(service, profile, items, workers=worker_count)
+            finally:
+                self._thread_pool.setMaxThreadCount(original_max)
 
         worker = TaskWorker(task)
         worker.signals.succeeded.connect(lambda result_map: self._on_verify_done(tab_name, result_map, on_success))
         worker.signals.failed.connect(lambda message: self._on_error(message, on_error))
         self._thread_pool.start(worker)
+
+    def verify_tab(
+        self,
+        tab_name: str,
+        on_success: Callable[[str], None],
+        on_error: Callable[[str], None],
+    ) -> None:
+        """Verify all channels in a specific tab from menu."""
+        self.verify_all_channels(tab_name, on_success, on_error)
+
+    def cancel_verification(
+        self,
+        on_success: Callable[[str], None],
+        on_error: Callable[[str], None],
+    ) -> None:
+        """Cancel all ongoing verification processes."""
+        try:
+            # Clear verification queue and stop background verification
+            self._state_store.update(
+                background_verification_active=False,
+                verification_queue=[],
+                priority_verification_active=False,
+                busy=False
+            )
+            on_success("All verification processes cancelled.")
+        except Exception as e:
+            on_error(f"Failed to cancel verification: {e}")
 
     def request_now_playing(
         self,
@@ -435,11 +477,18 @@ class AppController:
         results: dict[str, str],
         on_success: Callable[[str], None],
     ) -> None:
+        # Update current tab verification results
         verification = dict(self._state_store.state.verification_results)
         verification[tab_name] = results
+        
+        # Update persistent verification results (survives category changes)
+        persistent_results = dict(self._state_store.state.persistent_verification_results)
+        persistent_results.update(results)
+        
         ok_count = sum(1 for status in results.values() if status.startswith("OK"))
         self._state_store.update(
             verification_results=verification,
+            persistent_verification_results=persistent_results,
             status_text=f"Verification done: {ok_count}/{len(results)} reachable.",
         )
         on_success(f"Verification done: {ok_count}/{len(results)}")

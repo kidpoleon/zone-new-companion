@@ -23,6 +23,12 @@ class AppState:
     verification_results: dict[str, dict[str, str]] = field(
         default_factory=lambda: {"Live": {}, "Movies": {}, "Series": {}},
     )
+    # Persistent verification results that survive category changes
+    persistent_verification_results: dict[str, str] = field(default_factory=dict)
+    # Background verification state
+    background_verification_active: bool = False
+    verification_queue: list[str] = field(default_factory=list)
+    priority_verification_active: bool = False
     credential_info: dict[str, str] = field(default_factory=dict)
     now_playing: dict[str, dict[str, str]] = field(
         default_factory=lambda: {"Live": {}, "Movies": {}, "Series": {}},

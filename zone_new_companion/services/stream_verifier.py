@@ -106,17 +106,46 @@ class StreamVerifier:
         try:
             playlist_resp = self._session.get(m3u8_url, timeout=DEFAULT_TIMEOUT)
             playlist_resp.raise_for_status()
-            lines = [line.strip() for line in playlist_resp.text.splitlines() if line.strip()]
-            segment_line = next((line for line in lines if not line.startswith("#")), "")
-            if not segment_line:
-                return True
+            
+            # Check if it's actually an M3U playlist
+            content = playlist_resp.text.strip()
+            if not content.startswith('#EXTM3U'):
+                # Not a valid M3U playlist, might be an error page
+                return False
+            
+            lines = [line.strip() for line in content.splitlines() if line.strip()]
+            
+            # Look for actual media segments (non-comment lines)
+            segment_lines = [line for line in lines if not line.startswith('#')]
+            
+            if not segment_lines:
+                # No media segments found, check if it's a live stream with EXTINF
+                has_extinf = any('#EXTINF:' in line for line in lines)
+                return has_extinf  # Consider it valid if it has EXTINF entries
+            
+            # Try to access the first segment to verify it's accessible
+            segment_line = segment_lines[0]
             segment_url = urljoin(m3u8_url, segment_line)
-            segment_resp = self._session.get(
-                segment_url,
-                stream=True,
-                timeout=DEFAULT_TIMEOUT,
-            )
+            
+            # Use a shorter timeout for segment checking
+            segment_timeout = min(DEFAULT_TIMEOUT, 3)
+            segment_resp = self._session.head(segment_url, timeout=segment_timeout)
+            
+            # Check if segment is accessible (HEAD request is faster)
             ok = segment_resp.status_code < 400
+            
+            # If HEAD fails, try GET as fallback
+            if not ok:
+                try:
+                    segment_resp = self._session.get(
+                        segment_url,
+                        stream=True,
+                        timeout=segment_timeout,
+                    )
+                    ok = segment_resp.status_code < 400
+                    segment_resp.close()
+                except:
+                    ok = False
             segment_resp.close()
             return ok
         except RequestException:
