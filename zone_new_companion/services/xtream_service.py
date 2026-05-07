@@ -6,6 +6,8 @@ from datetime import datetime
 from typing import Any
 import xml.etree.ElementTree as et
 
+import requests
+
 from zone_new_companion.models import Credentials, EpgEntry, MediaItem, PlaylistCategory
 from zone_new_companion.services.base import PortalService
 from zone_new_companion.services.network import DEFAULT_TIMEOUT, create_session, normalize_url
@@ -17,10 +19,70 @@ class XtreamService(PortalService):
     def __init__(self) -> None:
         self._session = create_session()
         self._xmltv_cache: bytes | None = None
+        self._player_api_endpoint: str | None = None
+
+    @staticmethod
+    def _coerce_row_list(payload: Any) -> list[dict[str, Any]]:
+        if isinstance(payload, list):
+            return [row for row in payload if isinstance(row, dict)]
+        if isinstance(payload, dict):
+            if isinstance(payload.get("js"), list):
+                return [row for row in payload["js"] if isinstance(row, dict)]
+            if isinstance(payload.get("categories"), list):
+                return [row for row in payload["categories"] if isinstance(row, dict)]
+        return []
+
+    def _candidate_api_endpoints(self, base_url: str) -> list[str]:
+        base = base_url.rstrip("/")
+        candidates = [
+            normalize_url(base, "player_api.php"),
+            normalize_url(base, "panel_api.php"),
+            normalize_url(base, "xtream"),
+        ]
+        # Some users paste /c/ panel hosts for Stalker-like portals.
+        if base.endswith("/c"):
+            root_base = base[:-2].rstrip("/")
+            candidates.extend(
+                [
+                    normalize_url(root_base, "player_api.php"),
+                    normalize_url(root_base, "panel_api.php"),
+                    normalize_url(root_base, "xtream"),
+                ],
+            )
+        return list(dict.fromkeys(candidates))
+
+    def _request_api(
+        self,
+        credentials: Credentials,
+        *,
+        action: str | None = None,
+        extra_params: dict[str, str] | None = None,
+    ) -> Any:
+        params: dict[str, str] = {
+            "username": credentials.username,
+            "password": credentials.password,
+        }
+        if action:
+            params["action"] = action
+        if extra_params:
+            params.update(extra_params)
+
+        endpoints = [self._player_api_endpoint] if self._player_api_endpoint else []
+        endpoints.extend(self._candidate_api_endpoints(credentials.base_url))
+        last_error: Exception | None = None
+        for endpoint in dict.fromkeys([ep for ep in endpoints if ep]):
+            try:
+                response = self._session.get(endpoint, params=params, timeout=DEFAULT_TIMEOUT)
+                response.raise_for_status()
+                payload = response.json()
+                self._player_api_endpoint = endpoint
+                return payload
+            except (requests.RequestException, ValueError, RuntimeError) as exc:
+                last_error = exc
+                continue
+        raise RuntimeError(f"Xtream API request failed for all endpoints: {last_error}")
 
     def fetch_categories(self, credentials: Credentials) -> dict[str, list[PlaylistCategory]]:
-        endpoint = normalize_url(credentials.base_url, "player_api.php")
-        common = {"username": credentials.username, "password": credentials.password}
         mappings = {
             "Live": "get_live_categories",
             "Movies": "get_vod_categories",
@@ -29,13 +91,7 @@ class XtreamService(PortalService):
 
         grouped: dict[str, list[PlaylistCategory]] = {"Live": [], "Movies": [], "Series": []}
         for tab, action in mappings.items():
-            response = self._session.get(
-                endpoint,
-                params={**common, "action": action},
-                timeout=DEFAULT_TIMEOUT,
-            )
-            response.raise_for_status()
-            rows = response.json()
+            rows = self._coerce_row_list(self._request_api(credentials, action=action))
             grouped[tab] = [
                 PlaylistCategory(
                     id=str(row.get("category_id", "")),
@@ -47,16 +103,15 @@ class XtreamService(PortalService):
         return grouped
 
     def fetch_connection_info(self, credentials: Credentials) -> dict[str, str]:
-        endpoint = normalize_url(credentials.base_url, "player_api.php")
-        response = self._session.get(
-            endpoint,
-            params={"username": credentials.username, "password": credentials.password},
-            timeout=DEFAULT_TIMEOUT,
-        )
-        response.raise_for_status()
-        payload = response.json()
+        payload = self._request_api(credentials)
+        if not isinstance(payload, dict):
+            payload = {}
         user_info = payload.get("user_info", {})
         server_info = payload.get("server_info", {})
+        if not isinstance(user_info, dict):
+            user_info = {}
+        if not isinstance(server_info, dict):
+            server_info = {}
 
         expiry = "Unlimited"
         exp_date = str(user_info.get("exp_date", "")).strip()
@@ -84,12 +139,6 @@ class XtreamService(PortalService):
         }
 
     def fetch_items(self, credentials: Credentials, category: PlaylistCategory) -> list[MediaItem]:
-        endpoint = normalize_url(credentials.base_url, "player_api.php")
-        common = {
-            "username": credentials.username,
-            "password": credentials.password,
-            "category_id": category.id,
-        }
         if category.media_kind == "live":
             action = "get_live_streams"
             prefix = "live"
@@ -103,13 +152,8 @@ class XtreamService(PortalService):
             prefix = "series"
             item_type = "series"
 
-        response = self._session.get(
-            endpoint,
-            params={**common, "action": action},
-            timeout=DEFAULT_TIMEOUT,
-        )
-        response.raise_for_status()
-        rows: list[dict[str, Any]] = response.json()
+        payload = self._request_api(credentials, action=action, extra_params={"category_id": category.id})
+        rows = self._coerce_row_list(payload)
         items: list[MediaItem] = []
         for row in rows:
             stream_id = row.get("stream_id") or row.get("series_id") or row.get("id")
@@ -183,23 +227,19 @@ class XtreamService(PortalService):
         return entries[-10:]
 
     def fetch_series_children(self, credentials: Credentials, item: MediaItem) -> list[MediaItem]:
-        endpoint = normalize_url(credentials.base_url, "player_api.php")
         if item.item_type == "series":
-            response = self._session.get(
-                endpoint,
-                params={
-                    "username": credentials.username,
-                    "password": credentials.password,
-                    "action": "get_series_info",
-                    "series_id": item.id,
-                },
-                timeout=DEFAULT_TIMEOUT,
+            payload = self._request_api(
+                credentials,
+                action="get_series_info",
+                extra_params={"series_id": item.id},
             )
-            response.raise_for_status()
-            payload = response.json()
+            if not isinstance(payload, dict):
+                return []
             episodes = payload.get("episodes", {})
+            if not isinstance(episodes, dict):
+                return []
             season_items: list[MediaItem] = []
-            for season_name in sorted(episodes.keys(), key=lambda value: int(value)):
+            for season_name in sorted(episodes.keys(), key=lambda value: int(str(value)) if str(value).isdigit() else 0):
                 season_items.append(
                     MediaItem(
                         id=f"{item.id}:{season_name}",

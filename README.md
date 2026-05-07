@@ -1,4 +1,4 @@
-# zone-new-companion v1.0.0
+# zone-new-companion v1.0.1
 
 Unified desktop IPTV companion app that merges Xtream and Stalker workflows into a single cross-platform PyQt6 application.
 
@@ -27,6 +27,11 @@ Unified desktop IPTV companion app that merges Xtream and Stalker workflows into
   - reachability precheck (including HLS segment reachability)
   - ffprobe JSON verification for audio/video stream presence
   - channel list is annotated with status labels
+- v1.0.1 reliability improvements:
+  - Xtream `get.php?...` input auto-parsing into API credentials
+  - Xtream endpoint fallback (`player_api.php`, `panel_api.php`, `/xtream`)
+  - Stalker playback no longer blocked by EPG lookups
+  - Stalker stream creation uses proper `type=itv` vs `type=vod`
 
 ## Run (Unix: Linux/macOS) - Step by step, safe setup
 

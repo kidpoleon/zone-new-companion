@@ -127,9 +127,10 @@ class StalkerService(PortalService):
         if not cmd:
             raise ValueError("Missing stream command in selected item.")
         encoded = quote(cmd)
+        stream_type = "itv" if item.item_type == "channel" else "vod"
         create_link_url = normalize_url(
             credentials.base_url,
-            f"portal.php?type=itv&action=create_link&cmd={encoded}&JsHttpRequest=1-xml",
+            f"portal.php?type={stream_type}&action=create_link&cmd={encoded}&JsHttpRequest=1-xml",
         )
         response = self._session.get(
             create_link_url,

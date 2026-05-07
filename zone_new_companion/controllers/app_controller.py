@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 import re
 from typing import Callable
+from urllib.parse import parse_qs, urlparse
 
 from PyQt6.QtCore import QThreadPool
 
@@ -65,8 +66,34 @@ class AppController:
             return "MAC address must match format 00:11:22:33:44:55."
         return None
 
+    def _normalize_credentials(self, credentials: Credentials) -> Credentials:
+        """Normalize user input, including Xtream get.php links."""
+        base = credentials.base_url.strip()
+        if credentials.portal_type != PortalType.XTREAM:
+            return credentials
+
+        parsed = urlparse(base)
+        if parsed.path.endswith("/get.php"):
+            params = parse_qs(parsed.query)
+            username = (params.get("username") or [credentials.username])[0]
+            password = (params.get("password") or [credentials.password])[0]
+            host = parsed.hostname or ""
+            scheme = parsed.scheme or "http"
+            port = f":{parsed.port}" if parsed.port else ""
+            base = f"{scheme}://{host}{port}"
+            return Credentials(
+                name=credentials.name,
+                base_url=base,
+                portal_type=credentials.portal_type,
+                username=username,
+                password=password,
+                mac_address=credentials.mac_address,
+            )
+        return credentials
+
     def connect(self, credentials: Credentials, on_success: Callable[[str], None], on_error: Callable[[str], None]) -> None:
         """Load categories asynchronously and persist profile."""
+        credentials = self._normalize_credentials(credentials)
         self._config.last_input = credentials
         self._config_store.save(self._config)
         validation_error = self._validate_input(credentials)
@@ -169,9 +196,7 @@ class AppController:
         if profile is None:
             on_error("No active profile.")
             return
-        if self._state_store.state.busy:
-            return
-        self._state_store.update(busy=True, status_text=f"Loading EPG for {channel_item.name}")
+        self._state_store.update(status_text=f"Loading EPG for {channel_item.name}")
 
         def task() -> list:
             return self._service_for(profile).fetch_epg_for_channel(profile, channel_item)
@@ -185,7 +210,6 @@ class AppController:
         )
         worker.signals.succeeded.connect(lambda _rows: on_success("EPG updated"))
         worker.signals.failed.connect(lambda message: self._on_error(message, on_error))
-        worker.signals.finished.connect(lambda: self._state_store.update(busy=False))
         self._thread_pool.start(worker)
 
     def play(self, item: MediaItem, on_success: Callable[[str], None], on_error: Callable[[str], None]) -> None:
