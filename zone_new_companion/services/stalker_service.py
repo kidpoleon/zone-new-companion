@@ -37,30 +37,70 @@ class StalkerService(PortalService):
             headers["Authorization"] = f"Bearer {self._token}"
         return headers
 
+    def _validate_mac_address(self, mac: str) -> bool:
+        """Validate MAC address format."""
+        if not mac:
+            return False
+            
+        # Remove common separators and normalize
+        mac_clean = mac.replace(":", "").replace("-", "").replace(".", "")
+        
+        # Check if it's 12 hexadecimal characters
+        if len(mac_clean) != 12:
+            return False
+            
+        # Check if all characters are hexadecimal
+        try:
+            int(mac_clean, 16)
+            return True
+        except ValueError:
+            return False
+
     def _ensure_token(self, credentials: Credentials) -> None:
+        if not credentials.mac_address:
+            raise ValueError("MAC address is required for Stalker portals")
+            
+        # Validate MAC address format
+        if not self._validate_mac_address(credentials.mac_address):
+            raise ValueError(f"Invalid MAC address format: {credentials.mac_address}")
+            
         current_key = f"{credentials.base_url}|{credentials.mac_address}"
         if self._token and self._token_key == current_key:
             return
+            
+        logger_service.info(f"Getting Stalker token for MAC: {credentials.mac_address}")
+        
         handshake_url = normalize_url(
             credentials.base_url,
             "portal.php?type=stb&action=handshake&JsHttpRequest=1-xml",
         )
-        response = self._session.get(
-            handshake_url,
-            cookies={
-                "mac": credentials.mac_address,
-                "stb_lang": "en",
-                "timezone": "Europe/London",
-            },
-            timeout=DEFAULT_TIMEOUT,
-        )
-        response.raise_for_status()
-        token = response.json().get("js", {}).get("token", "")
-        if not token:
-            generated = hashlib.sha1(credentials.mac_address.encode("utf-8")).hexdigest().upper()[:32]
-            token = generated
-        self._token = token
-        self._token_key = current_key
+        
+        try:
+            response = self._session.get(
+                handshake_url,
+                cookies={
+                    "mac": credentials.mac_address,
+                    "stb_lang": "en",
+                    "timezone": "Europe/London",
+                },
+                timeout=DEFAULT_TIMEOUT,
+            )
+            response.raise_for_status()
+            token = response.json().get("js", {}).get("token", "")
+            
+            if not token:
+                # Generate fallback token
+                generated = hashlib.sha1(credentials.mac_address.encode("utf-8")).hexdigest().upper()[:32]
+                token = generated
+                logger_service.warning(f"Using generated token for MAC: {credentials.mac_address}")
+                
+            self._token = token
+            self._token_key = current_key
+            logger_service.info(f"Successfully obtained Stalker token: {self._token[:8]}...")
+            
+        except requests.RequestException as e:
+            logger_service.error(f"Failed to get Stalker token: {e}")
+            raise ValueError(f"Token request failed: {e}")
 
     def _portal_candidates(self, credentials: Credentials) -> list[str]:
         base = credentials.base_url.rstrip("/")
@@ -251,58 +291,62 @@ class StalkerService(PortalService):
                 last_error = exc
                 continue
                 
-        error_msg = f"Unable to create stream link for {item.name}: {last_error}"
-        logger_service.error(error_msg)
-        raise ValueError(error_msg)
+        raise ValueError(f"Unable to create stream link for {item.name}: {last_error}")
 
-    def fetch_connection_info(self, credentials: Credentials) -> dict[str, str]:
+    def get_connection_info(self, credentials: Credentials) -> dict[str, str]:
+        """Fetch account information from Stalker portal."""
         self._ensure_token(credentials)
-        profile_url = normalize_url(
-            credentials.base_url,
-            "portal.php?type=stb&action=get_profile&JsHttpRequest=1-xml",
-        )
-        account_url = normalize_url(
-            credentials.base_url,
-            "portal.php?type=account_info&action=get_main_info&JsHttpRequest=1-xml",
-        )
-        profile_response = self._session.get(
-            profile_url,
-            headers=self._headers(),
-            cookies=self._cookies(credentials),
-            timeout=DEFAULT_TIMEOUT,
-        )
-        profile_response.raise_for_status()
-        account_response = self._session.get(
-            account_url,
-            headers=self._headers(),
-            cookies=self._cookies(credentials),
-            timeout=DEFAULT_TIMEOUT,
-        )
-        account_response.raise_for_status()
-        profile = profile_response.json().get("js", {})
-        account = account_response.json().get("js", {})
+        info_url = normalize_url(credentials.base_url, "portal.php?type=account_info&action=get_main_info&JsHttpRequest=1-xml")
+        
+        try:
+            response = self._session.get(
+                info_url,
+                headers=self._headers(),
+                cookies=self._cookies(credentials),
+                timeout=DEFAULT_TIMEOUT,
+            )
+            response.raise_for_status()
+            data = response.json()
+            
+            account = data.get("account", {})
+            profile = account.get("profile", {})
+            
+            expiry = (
+                account.get("end_date")
+                or profile.get("end_date")
+                or account.get("expire_billing_date")
+                or profile.get("expire_billing_date")
+                or "Unknown"
+            )
+            
+            if expiry.isdigit():
+                expiry = datetime.fromtimestamp(int(expiry)).astimezone().strftime("%Y-%m-%d %H:%M")
 
-        expiry = str(
-            account.get("expire_billing_date")
-            or account.get("exp_date")
-            or profile.get("expire_billing_date")
-            or "Unknown",
-        )
-        if expiry.isdigit():
-            expiry = datetime.fromtimestamp(int(expiry)).astimezone().strftime("%Y-%m-%d %H:%M")
-
-        max_online = account.get("max_online") or profile.get("max_online") or "Unknown"
-        active_online = account.get("active_cons") or profile.get("active_cons") or "Unknown"
-        timezone = profile.get("default_timezone") or account.get("timezone") or "Europe/London"
-        return {
-            "Status": str(account.get("status", profile.get("status", "Unknown"))),
-            "Expiry": str(expiry),
-            "Active/Max Connections": f"{active_online}/{max_online}",
-            "Real URL": credentials.base_url,
-            "Ports": "Portal managed",
-            "Timezone": str(timezone),
-            "Created At": str(account.get("created", "Unknown")),
-        }
+            max_online = account.get("max_online") or profile.get("max_online") or "Unknown"
+            active_online = account.get("active_cons") or profile.get("active_cons") or "Unknown"
+            timezone = profile.get("default_timezone") or account.get("timezone") or "Europe/London"
+            
+            return {
+                "Status": str(account.get("status", profile.get("status", "Unknown"))),
+                "Expiry": str(expiry),
+                "Active/Max Connections": f"{active_online}/{max_online}",
+                "Real URL": credentials.base_url,
+                "Ports": "Portal managed",
+                "Timezone": str(timezone),
+                "Created At": str(account.get("created", "Unknown")),
+            }
+            
+        except Exception as e:
+            logger_service.error(f"Failed to fetch Stalker connection info: {e}")
+            return {
+                "Status": "Error",
+                "Expiry": "Unknown",
+                "Active/Max Connections": "Unknown",
+                "Real URL": credentials.base_url,
+                "Ports": "Portal managed",
+                "Timezone": "Unknown",
+                "Created At": "Unknown",
+            }
 
     def fetch_epg_for_channel(self, credentials: Credentials, channel_item: MediaItem) -> list[EpgEntry]:
         self._ensure_token(credentials)
