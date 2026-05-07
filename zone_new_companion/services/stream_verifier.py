@@ -36,7 +36,7 @@ class StreamVerifier:
         service: PortalService,
         credentials: Credentials,
         items: Iterable[MediaItem],
-        workers: int = 16,
+        workers: int = 8,
     ) -> dict[str, str]:
         """Verify items concurrently and return status map keyed by item id."""
         status_by_id: dict[str, str] = {}
@@ -57,6 +57,14 @@ class StreamVerifier:
                 except (RuntimeError, ValueError, OSError):
                     status_by_id[item_id] = "OFF (Verify Error)"
         return status_by_id
+
+    def verify_item(
+        self,
+        service: PortalService,
+        credentials: Credentials,
+        item: MediaItem,
+    ) -> VerificationResult:
+        return self._verify_single(service, credentials, item)
 
     def _verify_single(
         self,

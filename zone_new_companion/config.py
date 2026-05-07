@@ -53,6 +53,7 @@ class ConfigStore:
                 username=str(row.get("username", "")),
                 password=str(row.get("password", "")),
                 mac_address=str(row.get("mac_address", "")),
+                saved_at=str(row.get("saved_at", "")),
             )
             for row in history_payload
         ]
@@ -68,6 +69,7 @@ class ConfigStore:
                 username=str(last_input_payload.get("username", "")),
                 password=str(last_input_payload.get("password", "")),
                 mac_address=str(last_input_payload.get("mac_address", "")),
+                saved_at=str(last_input_payload.get("saved_at", "")),
             )
         ui = UiSettings(
             dark_theme=bool(ui_payload.get("dark_theme", True)),

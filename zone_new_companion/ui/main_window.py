@@ -2,28 +2,28 @@
 
 from __future__ import annotations
 
-from datetime import datetime
-
 from PyQt6.QtCore import Qt, pyqtSignal
+from PyQt6.QtGui import QColor
 from PyQt6.QtWidgets import (
-    QFrame,
     QHBoxLayout,
+    QHeaderView,
     QLabel,
     QListWidget,
     QListWidgetItem,
     QMenu,
     QMainWindow,
     QMessageBox,
+    QPushButton,
     QProgressBar,
-    QSplitter,
     QStatusBar,
+    QTableWidget,
+    QTableWidgetItem,
     QTabWidget,
-    QTextEdit,
     QVBoxLayout,
     QWidget,
 )
 
-from zone_new_companion.models import Credentials, EpgEntry
+from zone_new_companion.models import Credentials
 from zone_new_companion.state import AppState
 from zone_new_companion.ui.widgets.login_panel import LoginPanel
 from zone_new_companion.ui.widgets.toast import ToastLabel
@@ -36,72 +36,73 @@ class MainWindow(QMainWindow):
     connect_requested = pyqtSignal(object)
     category_selected = pyqtSignal(str, object)
     item_activated = pyqtSignal(str, object)
-    live_epg_requested = pyqtSignal(object)
+    verify_item_requested = pyqtSignal(str, object)
+    now_playing_requested = pyqtSignal(str, object)
     back_requested = pyqtSignal(str)
     reset_requested = pyqtSignal()
     history_selected = pyqtSignal(int)
-    verify_requested = pyqtSignal(str)
-
+    history_clear_requested = pyqtSignal()
     def __init__(self) -> None:
         super().__init__()
         self.setWindowTitle(f"zone-new-companion v{__version__}")
         self.setMinimumSize(1000, 650)
+        self._help_menu = QMenu("Help", self)
         self._history_menu = QMenu("History", self)
+        self.menuBar().addMenu(self._help_menu)
         self.menuBar().addMenu(self._history_menu)
-        self._tools_menu = QMenu("Tools", self)
-        self.menuBar().addMenu(self._tools_menu)
-        self._verify_action = self._tools_menu.addAction("Verify Current Tab Streams")
-        self._verify_action.triggered.connect(self._emit_verify_current_tab)
+
+        self._help_info_action = self._help_menu.addAction("Info")
+        self._help_exit_action = self._help_menu.addAction("Exit")
+        self._help_exit_action.triggered.connect(self.close)
 
         self._toast = ToastLabel(self)
         central = QWidget()
         self.setCentralWidget(central)
-        layout = QHBoxLayout(central)
-
-        self.splitter = QSplitter()
-        layout.addWidget(self.splitter)
+        layout = QVBoxLayout(central)
 
         self.login_panel = LoginPanel()
         self.login_panel.connect_clicked.connect(self.connect_requested.emit)
         self.login_panel.reset_clicked.connect(self._confirm_reset)
-        self.splitter.addWidget(self.login_panel)
+        layout.addWidget(self.login_panel, 0)
 
         right = QWidget()
         right_layout = QVBoxLayout(right)
         self.tab_widget = QTabWidget()
         self.category_lists: dict[str, QListWidget] = {}
-        self.item_lists: dict[str, QListWidget] = {}
+        self.item_tables: dict[str, QTableWidget] = {}
         for tab_name in ("Live", "Movies", "Series"):
             tab = QWidget()
             tab_layout = QHBoxLayout(tab)
             categories = QListWidget()
             categories.setToolTip("Category list")
-            items = QListWidget()
-            items.setToolTip("Items list")
+            table = QTableWidget()
+            table.setToolTip("Playlist items")
+            table.setColumnCount(5)
+            table.setHorizontalHeaderLabels(["Name", "Now Playing", "Status", "Verify", "Play"])
+            table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
+            table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
+            table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
+            table.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeMode.ResizeToContents)
+            table.horizontalHeader().setSectionResizeMode(4, QHeaderView.ResizeMode.ResizeToContents)
+            table.verticalHeader().setVisible(False)
+            table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+            table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+            table.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
+            table.cellClicked.connect(lambda row, _col, name=tab_name: self._emit_now_playing(name, row))
+            table.cellDoubleClicked.connect(lambda row, _col, name=tab_name: self._emit_play_from_row(name, row))
             tab_layout.addWidget(categories, 1)
-            tab_layout.addWidget(items, 2)
-            if tab_name == "Live":
-                epg_panel = self._build_epg_panel()
-                tab_layout.addWidget(epg_panel, 2)
+            tab_layout.addWidget(table, 3)
             self.tab_widget.addTab(tab, tab_name)
             self.category_lists[tab_name] = categories
-            self.item_lists[tab_name] = items
+            self.item_tables[tab_name] = table
 
             categories.itemClicked.connect(
                 lambda item, name=tab_name: self.category_selected.emit(name, item.data(Qt.ItemDataRole.UserRole)),
             )
-            if tab_name == "Live":
-                items.itemClicked.connect(
-                    lambda item: self.live_epg_requested.emit(item.data(Qt.ItemDataRole.UserRole)),
-                )
-            items.itemDoubleClicked.connect(
-                lambda item, name=tab_name: self.item_activated.emit(name, item.data(Qt.ItemDataRole.UserRole)),
-            )
-            items.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
-            items.customContextMenuRequested.connect(lambda _pos, name=tab_name: self.back_requested.emit(name))
+            table.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+            table.customContextMenuRequested.connect(lambda _pos, name=tab_name: self.back_requested.emit(name))
         right_layout.addWidget(self.tab_widget)
-        self.splitter.addWidget(right)
-        self.splitter.setSizes([320, 900])
+        layout.addWidget(right, 1)
 
         self.progress = QProgressBar()
         self.progress.setRange(0, 0)
@@ -134,16 +135,29 @@ class MainWindow(QMainWindow):
                 item.setData(Qt.ItemDataRole.UserRole, category)
                 list_widget.addItem(item)
         for tab_name, items in state.current_items.items():
-            list_widget = self.item_lists[tab_name]
-            list_widget.clear()
+            table = self.item_tables[tab_name]
+            table.setRowCount(0)
             for media in items:
+                row = table.rowCount()
+                table.insertRow(row)
+                name_item = QTableWidgetItem(media.name)
+                name_item.setData(Qt.ItemDataRole.UserRole, media)
+                now_text = state.now_playing.get(tab_name, {}).get(media.id, "")
+                now_item = QTableWidgetItem(now_text)
                 status = state.verification_results.get(tab_name, {}).get(media.id, "")
-                text = media.name if not status else f"[{status}] {media.name}"
-                item = QListWidgetItem(text)
-                item.setData(Qt.ItemDataRole.UserRole, media)
-                item.setToolTip(status or media.name)
-                list_widget.addItem(item)
-        self._render_epg(state.live_epg)
+                status_item = QTableWidgetItem(status)
+                table.setItem(row, 0, name_item)
+                table.setItem(row, 1, now_item)
+                table.setItem(row, 2, status_item)
+
+                verify_button = QPushButton("Verify")
+                verify_button.clicked.connect(lambda checked=False, name=tab_name, m=media: self.verify_item_requested.emit(name, m))
+                play_button = QPushButton("Play")
+                play_button.clicked.connect(lambda checked=False, name=tab_name, m=media: self.item_activated.emit(name, m))
+                table.setCellWidget(row, 3, verify_button)
+                table.setCellWidget(row, 4, play_button)
+
+                self._apply_row_color(table, row, status)
 
     def notify(self, text: str) -> None:
         """Show toast notification."""
@@ -168,38 +182,50 @@ class MainWindow(QMainWindow):
             action = self._history_menu.addAction(label)
             action.triggered.connect(lambda checked=False, idx=index: self.history_selected.emit(idx))
 
-    def _build_epg_panel(self) -> QWidget:
-        holder = QWidget()
-        epg_layout = QVBoxLayout(holder)
-        title = QLabel("EPG Guide (Local Time)")
-        title.setToolTip("Shows previous and upcoming programs in machine timezone.")
-        epg_layout.addWidget(title)
-        divider = QFrame()
-        divider.setFrameShape(QFrame.Shape.HLine)
-        divider.setFrameShadow(QFrame.Shadow.Sunken)
-        epg_layout.addWidget(divider)
-        self.live_epg_box = QTextEdit()
-        self.live_epg_box.setReadOnly(True)
-        self.live_epg_box.setPlaceholderText("Select a live channel to load EPG.")
-        epg_layout.addWidget(self.live_epg_box)
-        return holder
-
-    def _render_epg(self, entries: list[EpgEntry]) -> None:
-        if not hasattr(self, "live_epg_box"):
+    def set_history_grouped(self, groups: dict[str, list[tuple[int, str]]]) -> None:
+        """Populate history menu grouped by day."""
+        self._history_menu.clear()
+        clear_action = self._history_menu.addAction("Clear History")
+        clear_action.triggered.connect(self.history_clear_requested.emit)
+        saved_menu = self._history_menu.addMenu("Saved Credentials")
+        if not groups:
+            action = saved_menu.addAction("No successful connections yet")
+            action.setEnabled(False)
             return
-        if not entries:
-            self.live_epg_box.setPlainText("No EPG data for this channel.")
-            return
-        lines: list[str] = []
-        now = datetime.now().astimezone()
-        for row in entries:
-            marker = "NOW" if row.start_at <= now <= row.end_at else "   "
-            lines.append(
-                f"[{marker}] {row.start_at.strftime('%Y-%m-%d %H:%M')} - "
-                f"{row.end_at.strftime('%H:%M')} | {row.title}",
-            )
-        self.live_epg_box.setPlainText("\n".join(lines))
+        for day, entries in groups.items():
+            sub = saved_menu.addMenu(day)
+            for index, label in entries:
+                action = sub.addAction(label)
+                action.triggered.connect(lambda checked=False, idx=index: self.history_selected.emit(idx))
 
-    def _emit_verify_current_tab(self) -> None:
-        tab_name = self.tab_widget.tabText(self.tab_widget.currentIndex())
-        self.verify_requested.emit(tab_name)
+    def set_help_info(self, callback) -> None:
+        self._help_info_action.triggered.connect(callback)
+
+    @staticmethod
+    def _apply_row_color(table: QTableWidget, row: int, status: str) -> None:
+        if status.startswith("OK"):
+            color = QColor(46, 125, 50, 80)
+        elif status.startswith("OFF"):
+            color = QColor(198, 40, 40, 80)
+        else:
+            return
+        for col in range(0, 3):
+            item = table.item(row, col)
+            if item is not None:
+                item.setBackground(color)
+
+    def _emit_play_from_row(self, tab_name: str, row: int) -> None:
+        table = self.item_tables[tab_name]
+        cell = table.item(row, 0)
+        if cell is None:
+            return
+        media = cell.data(Qt.ItemDataRole.UserRole)
+        self.item_activated.emit(tab_name, media)
+
+    def _emit_now_playing(self, tab_name: str, row: int) -> None:
+        table = self.item_tables[tab_name]
+        cell = table.item(row, 0)
+        if cell is None:
+            return
+        media = cell.data(Qt.ItemDataRole.UserRole)
+        self.now_playing_requested.emit(tab_name, media)

@@ -15,6 +15,7 @@ from zone_new_companion.logging_config import configure_logging
 from zone_new_companion.models import MediaItem, PlaylistCategory
 from zone_new_companion.state import StateStore
 from zone_new_companion.ui.main_window import MainWindow
+from zone_new_companion import __version__
 
 
 def run() -> None:
@@ -33,6 +34,7 @@ def run() -> None:
     window = MainWindow()
     window.resize(controller.config.ui.width, controller.config.ui.height)
     _refresh_history_menu(window, controller)
+    window.set_help_info(lambda: _show_info(window))
 
     def on_error(message: str) -> None:
         QMessageBox.critical(window, "Error", message)
@@ -51,12 +53,13 @@ def run() -> None:
     window.item_activated.connect(
         lambda tab_name, item: _activate_item(controller, tab_name, item, on_error, window.notify),
     )
-    window.live_epg_requested.connect(lambda item: _load_live_epg(controller, item, on_error, window.notify))
     window.back_requested.connect(lambda tab_name: _go_back(controller, tab_name, window.notify, on_error))
     window.history_selected.connect(lambda index: _pick_history(window, controller, index))
-    window.verify_requested.connect(
-        lambda tab_name: controller.verify_tab_streams(tab_name, on_success=window.notify, on_error=on_error),
+    window.history_clear_requested.connect(lambda: _clear_history(window, controller))
+    window.verify_item_requested.connect(
+        lambda tab_name, item: controller.verify_single_item(tab_name, item, on_success=window.notify, on_error=on_error),
     )
+    window.now_playing_requested.connect(lambda tab_name, item: controller.request_now_playing(tab_name, item))
     window.reset_requested.connect(lambda: _reset(window, controller))
 
     if controller.config.last_input:
@@ -111,17 +114,6 @@ def _pick_history(window: MainWindow, controller: AppController, index: int) -> 
         window.notify("Loaded credentials from history")
 
 
-def _load_live_epg(
-    controller: AppController,
-    item: MediaItem,
-    on_error: Callable[[str], None],
-    on_success: Callable[[str], None],
-) -> None:
-    if item.item_type != "channel":
-        return
-    controller.load_live_epg(item, on_success=on_success, on_error=on_error)
-
-
 def _reset(window: MainWindow, controller: AppController) -> None:
     controller.reset_form()
     window.login_panel.clear()
@@ -135,9 +127,27 @@ def _on_connect_success(window: MainWindow, controller: AppController, message: 
 
 
 def _refresh_history_menu(window: MainWindow, controller: AppController) -> None:
-    labels = [
-        f"{row.portal_type.value.upper()} | {row.base_url} | "
-        f"{row.username or row.mac_address or 'anonymous'}"
-        for row in controller.history_entries()
-    ]
-    window.set_history_actions(labels)
+    groups: dict[str, list[tuple[int, str]]] = {}
+    history = controller.history_entries()
+    for idx, row in enumerate(history):
+        day = (row.saved_at or "Unknown Date").split("T", 1)[0]
+        label = f"{row.portal_type.value.upper()} | {row.base_url} | {row.username or row.mac_address or 'anonymous'}"
+        groups.setdefault(day, []).append((idx, label))
+    window.set_history_grouped(groups)
+
+
+def _clear_history(window: MainWindow, controller: AppController) -> None:
+    controller.clear_history()
+    _refresh_history_menu(window, controller)
+    window.notify("History cleared")
+
+
+def _show_info(window: MainWindow) -> None:
+    QMessageBox.information(
+        window,
+        "About zone-new-companion",
+        "zone-new-companion\n"
+        f"Version: {__version__}\n\n"
+        "GitHub: https://github.com/kidpoleon/zone-new-companion\n"
+        "Support: Open an issue on GitHub\n",
+    )

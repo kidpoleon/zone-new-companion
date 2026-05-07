@@ -25,6 +25,7 @@ class Credentials:
     username: str = ""
     password: str = ""
     mac_address: str = ""
+    saved_at: str = ""
 
 
 @dataclass(slots=True)

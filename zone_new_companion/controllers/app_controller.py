@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import re
+from datetime import datetime
 from typing import Callable
 from urllib.parse import parse_qs, urlparse
 
@@ -88,6 +89,7 @@ class AppController:
                 username=username,
                 password=password,
                 mac_address=credentials.mac_address,
+                saved_at=credentials.saved_at,
             )
         return credentials
 
@@ -130,7 +132,6 @@ class AppController:
         self._state_store.update(
             categories=categories,
             credential_info=connection_info,
-            live_epg=[],
             status_text="Playlist categories loaded.",
         )
         on_success(f"Connected ({credentials.portal_type.value})")
@@ -178,39 +179,19 @@ class AppController:
         current[tab_name] = items
         verification = dict(self._state_store.state.verification_results)
         verification[tab_name] = {}
+        now_playing = dict(self._state_store.state.now_playing)
+        now_playing[tab_name] = {}
         self._state_store.update(
             current_items=current,
             verification_results=verification,
+            now_playing=now_playing,
             status_text=f"{len(items)} items loaded.",
         )
         on_success(f"{tab_name}: {len(items)} entries")
 
-    def load_live_epg(
-        self,
-        channel_item: MediaItem,
-        on_success: Callable[[str], None],
-        on_error: Callable[[str], None],
-    ) -> None:
-        """Load EPG rows for the selected live channel."""
-        profile = self._state_store.state.active_profile
-        if profile is None:
-            on_error("No active profile.")
-            return
-        self._state_store.update(status_text=f"Loading EPG for {channel_item.name}")
-
-        def task() -> list:
-            return self._service_for(profile).fetch_epg_for_channel(profile, channel_item)
-
-        worker = TaskWorker(task)
-        worker.signals.succeeded.connect(
-            lambda epg_rows: self._state_store.update(
-                live_epg=epg_rows,
-                status_text=f"EPG loaded: {len(epg_rows)} rows",
-            ),
-        )
-        worker.signals.succeeded.connect(lambda _rows: on_success("EPG updated"))
-        worker.signals.failed.connect(lambda message: self._on_error(message, on_error))
-        self._thread_pool.start(worker)
+        # Lightweight "now playing" prefetch for Live tab.
+        if tab_name == "Live":
+            self._prefetch_now_playing(items[:10])
 
     def play(self, item: MediaItem, on_success: Callable[[str], None], on_error: Callable[[str], None]) -> None:
         """Resolve stream and launch VLC asynchronously."""
@@ -320,6 +301,70 @@ class AppController:
         worker.signals.finished.connect(lambda: self._state_store.update(busy=False))
         self._thread_pool.start(worker)
 
+    def verify_single_item(
+        self,
+        tab_name: str,
+        item: MediaItem,
+        on_success: Callable[[str], None],
+        on_error: Callable[[str], None],
+    ) -> None:
+        profile = self._state_store.state.active_profile
+        if profile is None:
+            on_error("No active profile.")
+            return
+        if item.item_type not in {"channel", "vod", "episode"}:
+            on_error("Item is not a playable stream.")
+            return
+
+        self._state_store.update(status_text=f"Verifying {item.name}...")
+
+        def task() -> dict[str, str]:
+            service = self._service_for(profile)
+            result = self._verifier.verify_item(service, profile, item)
+            return {item.id: result.status}
+
+        worker = TaskWorker(task)
+        worker.signals.succeeded.connect(lambda result_map: self._on_verify_done(tab_name, result_map, on_success))
+        worker.signals.failed.connect(lambda message: self._on_error(message, on_error))
+        self._thread_pool.start(worker)
+
+    def request_now_playing(
+        self,
+        tab_name: str,
+        item: MediaItem,
+    ) -> None:
+        profile = self._state_store.state.active_profile
+        if profile is None:
+            return
+        if item.item_type != "channel":
+            return
+        cached = self._state_store.state.now_playing.get(tab_name, {}).get(item.id, "")
+        if cached:
+            return
+
+        def task() -> tuple[str, str]:
+            title = self._service_for(profile).fetch_now_playing(profile, item)
+            return item.id, title
+
+        worker = TaskWorker(task)
+        worker.signals.succeeded.connect(lambda pair: self._on_now_playing(tab_name, pair))
+        self._thread_pool.start(worker)
+
+    def _on_now_playing(self, tab_name: str, payload: tuple[str, str]) -> None:
+        item_id, title = payload
+        if not title:
+            return
+        now_playing = dict(self._state_store.state.now_playing)
+        tab_map = dict(now_playing.get(tab_name, {}))
+        tab_map[item_id] = title
+        now_playing[tab_name] = tab_map
+        self._state_store.update(now_playing=now_playing)
+
+    def _prefetch_now_playing(self, items: list[MediaItem]) -> None:
+        for item in items:
+            if item.item_type == "channel":
+                self.request_now_playing("Live", item)
+
     def _on_verify_done(
         self,
         tab_name: str,
@@ -343,25 +388,38 @@ class AppController:
             current_items={"Live": [], "Movies": [], "Series": []},
             verification_results={"Live": {}, "Movies": {}, "Series": {}},
             credential_info={},
-            live_epg=[],
+            now_playing={"Live": {}, "Movies": {}, "Series": {}},
             status_text="Form reset.",
         )
         self._navigation_stack = {"Live": [], "Movies": [], "Series": []}
 
     def _remember_success(self, credentials: Credentials) -> None:
         LOGGER.info("Saving successful connection for %s", credentials.base_url)
+        stamped = Credentials(
+            name=credentials.name,
+            base_url=credentials.base_url,
+            portal_type=credentials.portal_type,
+            username=credentials.username,
+            password=credentials.password,
+            mac_address=credentials.mac_address,
+            saved_at=datetime.now().astimezone().isoformat(timespec="seconds"),
+        )
         key = (credentials.base_url, credentials.portal_type.value, credentials.username, credentials.mac_address)
         history: list[Credentials] = []
         for entry in self._config.successful_history:
             entry_key = (entry.base_url, entry.portal_type.value, entry.username, entry.mac_address)
             if entry_key != key:
                 history.append(entry)
-        history.insert(0, credentials)
+        history.insert(0, stamped)
         self._config.successful_history = history[:20]
         self._config_store.save(self._config)
 
+    def clear_history(self) -> None:
+        self._config.successful_history = []
+        self._config_store.save(self._config)
+
     def _on_error(self, message: str, callback: Callable[[str], None]) -> None:
-        LOGGER.exception("Operation failed: %s", message)
+        LOGGER.error("Operation failed: %s", message)
         self._state_store.update(status_text=f"Error: {message}")
         callback(message)
 

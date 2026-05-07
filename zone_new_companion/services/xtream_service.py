@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import base64
 from datetime import datetime
 from typing import Any
 import xml.etree.ElementTree as et
@@ -34,11 +35,24 @@ class XtreamService(PortalService):
 
     def _candidate_api_endpoints(self, base_url: str) -> list[str]:
         base = base_url.rstrip("/")
+        alt_base = ""
+        if base.startswith("http://"):
+            alt_base = "https://" + base[len("http://") :]
+        elif base.startswith("https://"):
+            alt_base = "http://" + base[len("https://") :]
         candidates = [
             normalize_url(base, "player_api.php"),
             normalize_url(base, "panel_api.php"),
             normalize_url(base, "xtream"),
         ]
+        if alt_base:
+            candidates.extend(
+                [
+                    normalize_url(alt_base, "player_api.php"),
+                    normalize_url(alt_base, "panel_api.php"),
+                    normalize_url(alt_base, "xtream"),
+                ],
+            )
         # Some users paste /c/ panel hosts for Stalker-like portals.
         if base.endswith("/c"):
             root_base = base[:-2].rstrip("/")
@@ -72,11 +86,17 @@ class XtreamService(PortalService):
         last_error: Exception | None = None
         for endpoint in dict.fromkeys([ep for ep in endpoints if ep]):
             try:
-                response = self._session.get(endpoint, params=params, timeout=DEFAULT_TIMEOUT)
-                response.raise_for_status()
-                payload = response.json()
-                self._player_api_endpoint = endpoint
-                return payload
+                # Some Xtream-compatible portals require GET, others POST.
+                for method in ("get", "post"):
+                    request = getattr(self._session, method)
+                    if method == "get":
+                        response = request(endpoint, params=params, timeout=DEFAULT_TIMEOUT)
+                    else:
+                        response = request(endpoint, data=params, timeout=DEFAULT_TIMEOUT)
+                    response.raise_for_status()
+                    payload = response.json()
+                    self._player_api_endpoint = endpoint
+                    return payload
             except (requests.RequestException, ValueError, RuntimeError) as exc:
                 last_error = exc
                 continue
@@ -225,6 +245,46 @@ class XtreamService(PortalService):
             previous_entries = [entry for entry in entries if entry.end_at < now]
             return previous_entries[-2:] + future_entries[:8]
         return entries[-10:]
+
+    def fetch_now_playing(self, credentials: Credentials, channel_item: MediaItem) -> str:
+        stream_id = str(channel_item.metadata.get("stream_id") or channel_item.id or "").strip()
+        if not stream_id:
+            return ""
+        try:
+            payload = self._request_api(
+                credentials,
+                action="get_short_epg",
+                extra_params={"stream_id": stream_id, "limit": "4"},
+            )
+        except (requests.RequestException, RuntimeError, ValueError):
+            return ""
+        if not isinstance(payload, dict):
+            return ""
+        entries = payload.get("epg_listings") or payload.get("epg_list") or []
+        if not isinstance(entries, list):
+            return ""
+        now_entry = next(
+            (
+                row
+                for row in entries
+                if isinstance(row, dict) and row.get("now_playing") in (1, "1", True)
+            ),
+            None,
+        )
+        if not now_entry:
+            now_entry = next((row for row in entries if isinstance(row, dict)), None)
+        if not isinstance(now_entry, dict):
+            return ""
+        title = str(now_entry.get("title") or now_entry.get("name") or "").strip()
+        if not title:
+            return ""
+        try:
+            decoded = base64.b64decode(title).decode("utf-8", errors="replace").strip()
+            if decoded:
+                return decoded
+        except (ValueError, OSError):
+            pass
+        return title
 
     def fetch_series_children(self, credentials: Credentials, item: MediaItem) -> list[MediaItem]:
         if item.item_type == "series":

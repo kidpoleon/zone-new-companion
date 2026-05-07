@@ -7,6 +7,7 @@ import os
 import platform
 import subprocess
 from pathlib import Path
+import shutil
 
 LOGGER = logging.getLogger(__name__)
 
@@ -30,11 +31,19 @@ def resolve_vlc_path() -> str:
     for path in candidate_vlc_paths():
         if Path(path).exists() and os.access(path, os.X_OK):
             return path
-    return candidate_vlc_paths()[0]
+    vlc_in_path = shutil.which("vlc")
+    if vlc_in_path:
+        return vlc_in_path
+    return ""
 
 
 def launch_stream(stream_url: str) -> None:
     """Launch stream with VLC."""
     vlc_path = resolve_vlc_path()
+    if not vlc_path:
+        raise FileNotFoundError(
+            "VLC executable not found. Install VLC or ensure it is available at one of: "
+            + ", ".join(candidate_vlc_paths()),
+        )
     LOGGER.info("Launching VLC at %s", vlc_path)
     subprocess.Popen([vlc_path, stream_url], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)

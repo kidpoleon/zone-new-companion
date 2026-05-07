@@ -1,4 +1,4 @@
-# zone-new-companion v1.0.1
+# zone-new-companion v1.0.2
 
 Unified desktop IPTV companion app that merges Xtream and Stalker workflows into a single cross-platform PyQt6 application.
 

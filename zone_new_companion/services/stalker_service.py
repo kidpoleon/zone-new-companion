@@ -3,8 +3,11 @@
 from __future__ import annotations
 
 import hashlib
+import re
 from datetime import datetime
 from urllib.parse import quote
+
+import requests
 
 from zone_new_companion.models import Credentials, EpgEntry, MediaItem, PlaylistCategory
 from zone_new_companion.services.base import PortalService
@@ -58,9 +61,37 @@ class StalkerService(PortalService):
         self._token = token
         self._token_key = current_key
 
+    def _portal_candidates(self, credentials: Credentials) -> list[str]:
+        base = credentials.base_url.rstrip("/")
+        candidates = [normalize_url(base, "portal.php")]
+        if "/c" in base:
+            root = base.split("/c", 1)[0].rstrip("/")
+            candidates.extend(
+                [
+                    normalize_url(root, "portal.php"),
+                    normalize_url(root, "stalker_portal/server/load.php"),
+                ],
+            )
+        else:
+            candidates.append(normalize_url(base, "stalker_portal/server/load.php"))
+        return list(dict.fromkeys(candidates))
+
+    def _extract_stream_url(self, raw_value: str, credentials: Credentials) -> str:
+        stream_url = raw_value.strip()
+        stream_url = re.sub(r"(?i)^ffmpeg\s*", "", stream_url).strip()
+        stream_url = stream_url.strip("\"'")
+        match = re.search(r"(https?://[^\s\"']+)", stream_url, flags=re.IGNORECASE)
+        if match:
+            return match.group(1)
+        if stream_url.startswith("/"):
+            return normalize_url(credentials.base_url, stream_url)
+        if stream_url and not re.match(r"^https?://", stream_url, flags=re.IGNORECASE):
+            return normalize_url(credentials.base_url, stream_url)
+        return stream_url
+
     def fetch_categories(self, credentials: Credentials) -> dict[str, list[PlaylistCategory]]:
         self._ensure_token(credentials)
-        base = normalize_url(credentials.base_url, "portal.php")
+        base = self._portal_candidates(credentials)[0]
         grouped: dict[str, list[PlaylistCategory]] = {"Live": [], "Movies": [], "Series": []}
         requests_by_tab = {
             "Live": ("itv", "get_genres"),
@@ -89,7 +120,7 @@ class StalkerService(PortalService):
 
     def fetch_items(self, credentials: Credentials, category: PlaylistCategory) -> list[MediaItem]:
         self._ensure_token(credentials)
-        base = normalize_url(credentials.base_url, "portal.php")
+        base = self._portal_candidates(credentials)[0]
         if category.media_kind == "live":
             query = {"type": "itv", "action": "get_ordered_list", "genre": category.id}
             item_type = "channel"
@@ -128,24 +159,31 @@ class StalkerService(PortalService):
             raise ValueError("Missing stream command in selected item.")
         encoded = quote(cmd)
         stream_type = "itv" if item.item_type == "channel" else "vod"
-        create_link_url = normalize_url(
-            credentials.base_url,
-            f"portal.php?type={stream_type}&action=create_link&cmd={encoded}&JsHttpRequest=1-xml",
-        )
-        response = self._session.get(
-            create_link_url,
-            headers=self._headers(),
-            cookies=self._cookies(credentials),
-            timeout=DEFAULT_TIMEOUT,
-        )
-        response.raise_for_status()
-        js = response.json().get("js", {})
-        stream_url = str(js.get("url") or js.get("cmd") or "").strip()
-        if stream_url.lower().startswith("ffmpeg"):
-            stream_url = stream_url[6:].strip()
-        if not stream_url:
-            raise ValueError("Unable to create stream link.")
-        return stream_url
+        last_error: Exception | None = None
+        for endpoint in self._portal_candidates(credentials):
+            try:
+                response = self._session.get(
+                    endpoint,
+                    params={
+                        "type": stream_type,
+                        "action": "create_link",
+                        "cmd": encoded,
+                        "JsHttpRequest": "1-xml",
+                    },
+                    headers=self._headers(),
+                    cookies=self._cookies(credentials),
+                    timeout=DEFAULT_TIMEOUT,
+                )
+                response.raise_for_status()
+                js = response.json().get("js", {})
+                stream_url = str(js.get("url") or js.get("cmd") or "").strip()
+                stream_url = self._extract_stream_url(stream_url, credentials)
+                if stream_url:
+                    return stream_url
+            except (requests.RequestException, ValueError, KeyError, TypeError) as exc:
+                last_error = exc
+                continue
+        raise ValueError(f"Unable to create stream link: {last_error}")
 
     def fetch_connection_info(self, credentials: Credentials) -> dict[str, str]:
         self._ensure_token(credentials)
@@ -235,6 +273,51 @@ class StalkerService(PortalService):
             previous_entries = [entry for entry in entries if entry.end_at < now]
             return previous_entries[-2:] + future_entries[:8]
         return entries[-10:]
+
+    def fetch_now_playing(self, credentials: Credentials, channel_item: MediaItem) -> str:
+        self._ensure_token(credentials)
+        channel_id = str(channel_item.metadata.get("id", "")).strip()
+        if not channel_id:
+            return ""
+        endpoint = self._portal_candidates(credentials)[0]
+        try:
+            response = self._session.get(
+                endpoint,
+                params={
+                    "type": "itv",
+                    "action": "get_epg_info",
+                    "period": "1",
+                    "ch_id": channel_id,
+                    "JsHttpRequest": "1-xml",
+                },
+                headers=self._headers(),
+                cookies=self._cookies(credentials),
+                timeout=DEFAULT_TIMEOUT,
+            )
+            response.raise_for_status()
+        except requests.RequestException:
+            return ""
+        rows = response.json().get("js", {}).get("data", [])
+        if not isinstance(rows, list) or not rows:
+            return ""
+        now_ts = datetime.now().astimezone().timestamp()
+        best = None
+        for row in rows:
+            if not isinstance(row, dict):
+                continue
+            try:
+                start_ts = float(row.get("start_timestamp") or row.get("time") or 0)
+                stop_ts = float(row.get("stop_timestamp") or row.get("time_to") or 0)
+            except (TypeError, ValueError):
+                continue
+            if start_ts <= now_ts <= stop_ts:
+                best = row
+                break
+        if best is None:
+            best = next((row for row in rows if isinstance(row, dict)), None)
+        if not isinstance(best, dict):
+            return ""
+        return str(best.get("name") or best.get("title") or "").strip()
 
     def fetch_series_children(self, credentials: Credentials, item: MediaItem) -> list[MediaItem]:
         self._ensure_token(credentials)

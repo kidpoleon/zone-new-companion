@@ -33,3 +33,7 @@ class PortalService(ABC):
     def fetch_epg_for_channel(self, credentials: Credentials, channel_item: MediaItem) -> list[EpgEntry]:
         """Fetch EPG for one channel as local machine times."""
         return []
+
+    def fetch_now_playing(self, credentials: Credentials, channel_item: MediaItem) -> str:
+        """Fetch a lightweight 'now playing' title for a live channel."""
+        return ""

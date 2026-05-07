@@ -20,6 +20,9 @@ def normalize_url(base_url: str, path: str = "") -> str:
 def create_session() -> requests.Session:
     """Create shared requests session with stable user-agent."""
     session = requests.Session()
+    adapter = requests.adapters.HTTPAdapter(pool_connections=50, pool_maxsize=50, max_retries=0)
+    session.mount("http://", adapter)
+    session.mount("https://", adapter)
     session.headers.update(
         {
             "User-Agent": (

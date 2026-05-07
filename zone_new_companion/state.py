@@ -6,7 +6,7 @@ from dataclasses import dataclass, field, replace
 
 from PyQt6.QtCore import QObject, pyqtSignal
 
-from zone_new_companion.models import Credentials, EpgEntry, MediaItem, PlaylistCategory
+from zone_new_companion.models import Credentials, MediaItem, PlaylistCategory
 
 
 @dataclass(slots=True)
@@ -24,7 +24,9 @@ class AppState:
         default_factory=lambda: {"Live": {}, "Movies": {}, "Series": {}},
     )
     credential_info: dict[str, str] = field(default_factory=dict)
-    live_epg: list[EpgEntry] = field(default_factory=list)
+    now_playing: dict[str, dict[str, str]] = field(
+        default_factory=lambda: {"Live": {}, "Movies": {}, "Series": {}},
+    )
     status_text: str = "Ready"
     busy: bool = False
 

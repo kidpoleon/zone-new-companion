@@ -5,7 +5,6 @@ from __future__ import annotations
 from PyQt6.QtCore import pyqtSignal
 from PyQt6.QtWidgets import (
     QComboBox,
-    QFrame,
     QFormLayout,
     QGroupBox,
     QHBoxLayout,
@@ -27,9 +26,12 @@ class LoginPanel(QWidget):
 
     def __init__(self) -> None:
         super().__init__()
-        root = QVBoxLayout(self)
+        root = QHBoxLayout(self)
+        root.setContentsMargins(8, 8, 8, 8)
+
         self.form_group = QGroupBox("Connection")
-        form = QFormLayout(self.form_group)
+        form = QFormLayout()
+        self.form_group.setLayout(form)
 
         self.portal_type_input = QComboBox()
         self.portal_type_input.addItems([PortalType.XTREAM.value, PortalType.STALKER.value])
@@ -51,19 +53,6 @@ class LoginPanel(QWidget):
         form.addRow("Username", self.username_input)
         form.addRow("Password", self.password_input)
         form.addRow("MAC", self.mac_input)
-        root.addWidget(self.form_group)
-        root.addWidget(self._divider())
-
-        self.info_group = QGroupBox("Credential Information")
-        info_layout = QVBoxLayout(self.info_group)
-        self.info_box = QTextEdit()
-        self.info_box.setReadOnly(True)
-        self.info_box.setToolTip("Shows details for the last successful connection.")
-        self.info_box.setPlaceholderText(
-            "Connect successfully to view expiry, connections, domain, ports, timezone, and account status.",
-        )
-        info_layout.addWidget(self.info_box)
-        root.addWidget(self.info_group, 1)
 
         buttons = QHBoxLayout()
         self.connect_button = QPushButton("Connect")
@@ -72,7 +61,22 @@ class LoginPanel(QWidget):
         self.reset_button.setToolTip("Clear form fields.")
         buttons.addWidget(self.connect_button)
         buttons.addWidget(self.reset_button)
-        root.addLayout(buttons)
+        form.addRow("", buttons)
+
+        self.info_group = QGroupBox("Credential Information")
+        info_layout = QVBoxLayout()
+        self.info_group.setLayout(info_layout)
+        self.info_box = QTextEdit()
+        self.info_box.setReadOnly(True)
+        self.info_box.setToolTip("Shows details for the last successful connection.")
+        self.info_box.setPlaceholderText(
+            "Connect successfully to view expiry, connections, domain, ports, timezone, and account status.",
+        )
+        info_layout.addWidget(self.info_box)
+        self.info_group.setMinimumWidth(420)
+
+        root.addWidget(self.form_group, 0)
+        root.addWidget(self.info_group, 1)
 
         self.connect_button.clicked.connect(self._emit_credentials)
         self.reset_button.clicked.connect(self.reset_clicked.emit)
@@ -108,13 +112,6 @@ class LoginPanel(QWidget):
             return
         lines = [f"{key}: {value}" for key, value in info_map.items()]
         self.info_box.setPlainText("\n".join(lines))
-
-    @staticmethod
-    def _divider() -> QFrame:
-        divider = QFrame()
-        divider.setFrameShape(QFrame.Shape.HLine)
-        divider.setFrameShadow(QFrame.Shadow.Sunken)
-        return divider
 
     def _update_field_visibility(self, portal_name: str) -> None:
         is_stalker = portal_name == PortalType.STALKER.value
