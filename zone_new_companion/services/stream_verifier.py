@@ -10,6 +10,7 @@ from typing import Iterable
 from urllib.parse import urljoin
 
 import requests
+from requests import RequestException
 
 from zone_new_companion.models import Credentials, MediaItem
 from zone_new_companion.services.base import PortalService
@@ -53,7 +54,7 @@ class StreamVerifier:
                 try:
                     result = future.result()
                     status_by_id[item_id] = result.status
-                except Exception:
+                except (RuntimeError, ValueError, OSError):
                     status_by_id[item_id] = "OFF (Verify Error)"
         return status_by_id
 
@@ -89,7 +90,7 @@ class StreamVerifier:
             ok = response.status_code < 400
             response.close()
             return ok
-        except Exception:
+        except RequestException:
             return False
 
     def _quick_hls_check(self, m3u8_url: str) -> bool:
@@ -109,7 +110,7 @@ class StreamVerifier:
             ok = segment_resp.status_code < 400
             segment_resp.close()
             return ok
-        except Exception:
+        except RequestException:
             return False
 
     @staticmethod
@@ -139,5 +140,5 @@ class StreamVerifier:
             has_video = any(stream.get("codec_type") == "video" for stream in streams)
             has_audio = any(stream.get("codec_type") == "audio" for stream in streams)
             return has_video, has_audio
-        except Exception:
+        except (subprocess.SubprocessError, json.JSONDecodeError, OSError, ValueError):
             return False, False
