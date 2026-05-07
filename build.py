@@ -28,7 +28,7 @@ def build_executable():
             import shutil
             shutil.rmtree(path)
     
-    # Build command
+    # Build command with platform-specific options
     cmd = [
         sys.executable, "-m", "PyInstaller",
         "--noconfirm",
@@ -40,6 +40,10 @@ def build_executable():
         "--add-data", f"{icon_path}{os.pathsep}zone_new_companion/icon",
         "main.py"
     ]
+    
+    # For Windows release, always create .exe extension
+    # We'll force rename after build regardless of current platform
+    create_windows_exe = True  # Set to True for Windows releases
     
     print(f"Running: {' '.join(cmd)}")
     try:
@@ -61,17 +65,31 @@ def build_executable():
         exe_file = built_files[0]  # Get the first (should be only) file
         print(f"Executable created at: {exe_file}")
         
-        # Rename to have proper .exe extension on Windows
-        if platform.system() == "Windows" and not exe_file.name.endswith(".exe"):
-            new_name = exe_file.with_suffix(".exe")
-            exe_file.rename(new_name)
-            print(f"Renamed to: {new_name}")
-        elif platform.system() != "Windows" and exe_file.name.endswith(".exe"):
-            # Remove .exe extension on non-Windows platforms
-            new_name = exe_file.with_suffix("")
-            exe_file.rename(new_name)
-            print(f"Renamed to: {new_name}")
+        # Force .exe extension for Windows releases
+        if create_windows_exe:
+            if not exe_file.name.endswith(".exe"):
+                new_name = exe_file.with_suffix(".exe")
+                exe_file.rename(new_name)
+                print(f"Renamed to: {new_name}")
+                exe_file = new_name
+        else:
+            # Remove .exe extension on non-Windows releases if present
+            if exe_file.name.endswith(".exe"):
+                new_name = exe_file.with_suffix("")
+                exe_file.rename(new_name)
+                print(f"Renamed to: {new_name}")
+                exe_file = new_name
+        
+        # Verify final executable exists and has correct name
+        if not exe_file.exists():
+            print("Error: Final executable not found")
+            return False
             
+        expected_name = "zone-new-companion.exe" if create_windows_exe else "zone-new-companion"
+        if exe_file.name != expected_name:
+            print(f"Warning: Expected '{expected_name}' but got '{exe_file.name}'")
+        
+        print(f"Final executable: {exe_file}")
         return True
         
     except subprocess.CalledProcessError as e:

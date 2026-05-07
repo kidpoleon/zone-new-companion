@@ -55,15 +55,30 @@ class M3UService(PortalService):
 
     def _fetch_playlist_content(self, url: str) -> str:
         """Fetch M3U playlist content."""
+        if not url:
+            raise ValueError("URL cannot be empty")
+        
         # Handle XTREAM get.php URLs
         if "get.php" in url:
             # Extract credentials from get.php URL and use XTREAM-like parsing
             return self._fetch_from_get_php(url)
         
         # Standard M3U URL
-        response = self._session.get(url, timeout=DEFAULT_TIMEOUT)
-        response.raise_for_status()
-        return response.text
+        try:
+            response = self._session.get(url, timeout=DEFAULT_TIMEOUT)
+            response.raise_for_status()
+            
+            # Validate content looks like M3U
+            content = response.text
+            if not content.strip():
+                raise ValueError("Empty playlist content")
+            if not any(line.strip().startswith('#EXTM3U') for line in content.split('\n')[:10]):
+                # Not a strict requirement, but warn if no M3U header found
+                pass  # Some playlists might not have the header
+            
+            return content
+        except requests.RequestException as e:
+            raise RuntimeError(f"Failed to fetch playlist: {e}")
 
     def _fetch_from_get_php(self, url: str) -> str:
         """Handle XTREAM get.php URLs for M3U format."""

@@ -46,4 +46,21 @@ def launch_stream(stream_url: str) -> None:
             + ", ".join(candidate_vlc_paths()),
         )
     LOGGER.info("Launching VLC at %s", vlc_path)
-    subprocess.Popen([vlc_path, stream_url], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    
+    # Platform-specific launch options
+    startupinfo = None
+    if platform.system() == "Windows":
+        startupinfo = subprocess.STARTUPINFO()
+        startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+        startupinfo.wShowWindow = subprocess.SW_HIDE
+    
+    try:
+        subprocess.Popen(
+            [vlc_path, stream_url], 
+            stdout=subprocess.DEVNULL, 
+            stderr=subprocess.DEVNULL,
+            startupinfo=startupinfo
+        )
+    except Exception as e:
+        LOGGER.error("Failed to launch VLC: %s", e)
+        raise RuntimeError(f"Failed to launch VLC: {e}")
