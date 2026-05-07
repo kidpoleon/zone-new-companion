@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build script for zone-new-companion."""
+"""Build script for zone-new-companion on Unix systems (Linux/macOS)."""
 
 import os
 import platform
@@ -9,17 +9,14 @@ from pathlib import Path
 
 
 def build_executable():
-    """Build the executable using PyInstaller."""
-    print("Building zone-new-companion executable...")
+    """Build the executable using PyInstaller for Unix systems."""
+    print("Building zone-new-companion executable for Unix systems...")
     
     # Check if icon exists
     icon_path = Path("zone_new_companion/icon/icon.ico")
     if not icon_path.exists():
         print(f"Error: Icon file not found at {icon_path}")
         return False
-    
-    # Determine executable name based on platform
-    exe_name = "zone-new-companion.exe" if platform.system() == "Windows" else "zone-new-companion"
     
     # Clean previous build
     print("Cleaning previous build...")
@@ -28,7 +25,7 @@ def build_executable():
             import shutil
             shutil.rmtree(path)
     
-    # Build command with platform-specific options
+    # Build command for Unix systems
     cmd = [
         sys.executable, "-m", "PyInstaller",
         "--noconfirm",
@@ -40,10 +37,6 @@ def build_executable():
         "--add-data", f"{icon_path}{os.pathsep}zone_new_companion/icon",
         "main.py"
     ]
-    
-    # For Windows release, always create .exe extension
-    # We'll force rename after build regardless of current platform
-    create_windows_exe = True  # Set to True for Windows releases
     
     print(f"Running: {' '.join(cmd)}")
     try:
@@ -62,34 +55,26 @@ def build_executable():
             print("Error: No executable found in dist directory")
             return False
             
-        exe_file = built_files[0]  # Get the first (should be only) file
+        exe_file = built_files[0]
         print(f"Executable created at: {exe_file}")
         
-        # Force .exe extension for Windows releases
-        if create_windows_exe:
-            if not exe_file.name.endswith(".exe"):
-                new_name = exe_file.with_suffix(".exe")
-                exe_file.rename(new_name)
-                print(f"Renamed to: {new_name}")
-                exe_file = new_name
-        else:
-            # Remove .exe extension on non-Windows releases if present
-            if exe_file.name.endswith(".exe"):
-                new_name = exe_file.with_suffix("")
-                exe_file.rename(new_name)
-                print(f"Renamed to: {new_name}")
-                exe_file = new_name
+        # Ensure no .exe extension on Unix
+        if exe_file.name.endswith(".exe"):
+            new_name = exe_file.with_suffix("")
+            exe_file.rename(new_name)
+            print(f"Renamed to: {new_name}")
+            exe_file = new_name
         
-        # Verify final executable exists and has correct name
+        # Verify final executable exists
         if not exe_file.exists():
             print("Error: Final executable not found")
             return False
             
-        expected_name = "zone-new-companion.exe" if create_windows_exe else "zone-new-companion"
+        expected_name = "zone-new-companion"
         if exe_file.name != expected_name:
             print(f"Warning: Expected '{expected_name}' but got '{exe_file.name}'")
         
-        print(f"Final executable: {exe_file}")
+        print(f"Final Unix executable: {exe_file}")
         return True
         
     except subprocess.CalledProcessError as e:

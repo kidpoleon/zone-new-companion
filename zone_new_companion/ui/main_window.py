@@ -98,16 +98,38 @@ class MainWindow(QMainWindow):
         
         # Create tab widget with verify all button
         tab_container = QWidget()
-        tab_container_layout = QHBoxLayout(tab_container)
+        tab_container_layout = QVBoxLayout(tab_container)
         tab_container_layout.setContentsMargins(0, 0, 0, 0)
         
         self.tab_widget = QTabWidget()
-        self.verify_all_button = QPushButton("Verify All Channels")
+        self.verify_all_button = QPushButton("🔍")
         self.verify_all_button.setToolTip("Verify all channels in current tab")
         self.verify_all_button.clicked.connect(self._emit_verify_all_channels)
+        self.verify_all_button.setMaximumWidth(60)
+        self.verify_all_button.setStyleSheet("""
+            QPushButton {
+                font-size: 18px;
+                padding: 8px;
+                border-radius: 4px;
+                background-color: #3a3a3a;
+                color: white;
+            }
+            QPushButton:hover {
+                background-color: #4a4a4a;
+            }
+            QPushButton:pressed {
+                background-color: #2a2a2a;
+            }
+        """)
+        
+        # Create a horizontal layout for the button to center it
+        button_container = QWidget()
+        button_layout = QHBoxLayout(button_container)
+        button_layout.setContentsMargins(0, 5, 0, 5)
+        button_layout.addWidget(self.verify_all_button)
         
         tab_container_layout.addWidget(self.tab_widget, 1)
-        tab_container_layout.addWidget(self.verify_all_button)
+        tab_container_layout.addWidget(button_container)
         
         self.category_lists: dict[str, QListWidget] = {}
         self.item_tables: dict[str, QTableWidget] = {}
@@ -191,10 +213,47 @@ class MainWindow(QMainWindow):
                 table.setItem(row, 1, now_item)
                 table.setItem(row, 2, status_item)
 
-                verify_button = QPushButton("Verify")
+                verify_button = QPushButton("🔍")
+                verify_button.setToolTip("Verify stream")
                 verify_button.clicked.connect(lambda checked=False, name=tab_name, m=media: self.verify_item_requested.emit(name, m))
-                play_button = QPushButton("Play")
+                verify_button.setStyleSheet("""
+                    QPushButton {
+                        font-size: 14px;
+                        padding: 4px;
+                        border-radius: 3px;
+                        background-color: #3a3a3a;
+                        color: white;
+                        min-width: 30px;
+                        max-width: 30px;
+                    }
+                    QPushButton:hover {
+                        background-color: #4a4a4a;
+                    }
+                    QPushButton:pressed {
+                        background-color: #2a2a2a;
+                    }
+                """)
+                
+                play_button = QPushButton("▶")
+                play_button.setToolTip("Play stream")
                 play_button.clicked.connect(lambda checked=False, name=tab_name, m=media: self.item_activated.emit(name, m))
+                play_button.setStyleSheet("""
+                    QPushButton {
+                        font-size: 14px;
+                        padding: 4px;
+                        border-radius: 3px;
+                        background-color: #3a3a3a;
+                        color: white;
+                        min-width: 30px;
+                        max-width: 30px;
+                    }
+                    QPushButton:hover {
+                        background-color: #4a4a4a;
+                    }
+                    QPushButton:pressed {
+                        background-color: #2a2a2a;
+                    }
+                """)
                 table.setCellWidget(row, 3, verify_button)
                 table.setCellWidget(row, 4, play_button)
 
@@ -269,6 +328,7 @@ class MainWindow(QMainWindow):
 
     def _emit_verify_all_channels(self) -> None:
         """Emit verify all channels for current tab."""
-        current_tab = self.tab_widget.currentText()
+        current_index = self.tab_widget.currentIndex()
+        current_tab = self.tab_widget.tabText(current_index)
         if current_tab in ("Live", "Movies", "Series"):
             self.verify_all_channels_requested.emit(current_tab)

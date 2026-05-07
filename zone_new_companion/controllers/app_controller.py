@@ -49,27 +49,57 @@ class AppController:
         return list(self._config.successful_history)
 
     def _service_for(self, profile: Credentials) -> PortalService:
-        return self._services[profile.portal_type]
+        """Get the appropriate service for the given profile."""
+        try:
+            service = self._services.get(profile.portal_type)
+            if service is None:
+                raise ValueError(f"Unsupported portal type: {profile.portal_type}")
+            return service
+        except Exception as e:
+            LOGGER.error(f"Failed to get service for portal type {profile.portal_type}: {e}")
+            raise
 
     def _validate_input(self, credentials: Credentials) -> str | None:
-        if not credentials.base_url:
-            return "Base URL is required."
-        if re.search(r"\s", credentials.base_url):
-            return "Base URL must not contain spaces."
-        if credentials.portal_type == PortalType.XTREAM and (
-            not credentials.username or not credentials.password
-        ):
-            return "Xtream mode requires username and password."
-        if credentials.portal_type == PortalType.M3U and not credentials.base_url:
-            return "M3U mode requires a valid playlist URL."
-        if credentials.portal_type == PortalType.STALKER and not credentials.mac_address:
-            return "Stalker mode requires MAC address."
-        if credentials.portal_type == PortalType.STALKER and not re.match(
-            r"^[0-9a-fA-F]{2}(:[0-9a-fA-F]{2}){5}$",
-            credentials.mac_address,
-        ):
-            return "MAC address must match format 00:11:22:33:44:55."
-        return None
+        """Validate input credentials with comprehensive error checking."""
+        try:
+            if not credentials.base_url:
+                return "Base URL is required."
+            
+            # Validate URL format
+            if not credentials.base_url.startswith(('http://', 'https://')):
+                return "Base URL must start with http:// or https://"
+            
+            if re.search(r"\s", credentials.base_url):
+                return "Base URL must not contain spaces."
+            
+            # Portal-specific validation
+            if credentials.portal_type == PortalType.XTREAM:
+                if not credentials.username or not credentials.password:
+                    return "Xtream mode requires username and password."
+                if len(credentials.username) < 3:
+                    return "Username must be at least 3 characters long."
+                    
+            elif credentials.portal_type == PortalType.M3U:
+                if not credentials.base_url:
+                    return "M3U mode requires a valid playlist URL."
+                # Additional M3U validation
+                if not any(ext in credentials.base_url.lower() for ext in ['.m3u', '.m3u8', 'get.php']):
+                    LOGGER.warning("M3U URL doesn't contain typical M3U indicators")
+                    
+            elif credentials.portal_type == PortalType.STALKER:
+                if not credentials.mac_address:
+                    return "Stalker mode requires MAC address."
+                if not re.match(
+                    r"^[0-9a-fA-F]{2}(:[0-9a-fA-F]{2}){5}$",
+                    credentials.mac_address,
+                ):
+                    return "MAC address must match format 00:11:22:33:44:55."
+            
+            return None
+            
+        except Exception as e:
+            LOGGER.error(f"Validation error: {e}")
+            return f"Validation failed: {e}"
 
     def _normalize_credentials(self, credentials: Credentials) -> Credentials:
         """Normalize user input, including Xtream get.php links."""
