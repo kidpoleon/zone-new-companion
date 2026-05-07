@@ -1,0 +1,12 @@
+venv/
+.venv/
+dist/
+build/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.log
+icon_gen_status.txt
+zone_new_companion/icon/app.png
+zone_new_companion/icon/app.ico

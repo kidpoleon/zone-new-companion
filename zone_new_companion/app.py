@@ -1,0 +1,143 @@
+"""Application bootstrap."""
+
+from __future__ import annotations
+
+import sys
+from pathlib import Path
+from typing import Callable
+
+from PyQt6.QtWidgets import QApplication, QMessageBox
+import qdarkstyle
+
+from zone_new_companion.config import ConfigStore
+from zone_new_companion.controllers.app_controller import AppController
+from zone_new_companion.logging_config import configure_logging
+from zone_new_companion.models import MediaItem, PlaylistCategory
+from zone_new_companion.state import StateStore
+from zone_new_companion.ui.main_window import MainWindow
+
+
+def run() -> None:
+    """Start the GUI application."""
+    app_data = Path.home() / ".zone-new-companion"
+    configure_logging(app_data / "logs")
+
+    config_store = ConfigStore(app_data / "config.json")
+    state_store = StateStore()
+    controller = AppController(state_store, config_store)
+
+    qt_app = QApplication(sys.argv)
+    if controller.config.ui.dark_theme:
+        qt_app.setStyleSheet(qdarkstyle.load_stylesheet(qt_api="pyqt6"))
+
+    window = MainWindow()
+    window.resize(controller.config.ui.width, controller.config.ui.height)
+    _refresh_history_menu(window, controller)
+
+    def on_error(message: str) -> None:
+        QMessageBox.critical(window, "Error", message)
+
+    state_store.state_changed.connect(window.apply_state)
+    window.connect_requested.connect(
+        lambda credentials: controller.connect(
+            credentials,
+            on_success=lambda message: _on_connect_success(window, controller, message),
+            on_error=on_error,
+        ),
+    )
+    window.category_selected.connect(
+        lambda tab_name, category: _load_category(controller, tab_name, category, on_error, window.notify),
+    )
+    window.item_activated.connect(
+        lambda tab_name, item: _activate_item(controller, tab_name, item, on_error, window.notify),
+    )
+    window.live_epg_requested.connect(lambda item: _load_live_epg(controller, item, on_error, window.notify))
+    window.back_requested.connect(lambda tab_name: _go_back(controller, tab_name, window.notify, on_error))
+    window.history_selected.connect(lambda index: _pick_history(window, controller, index))
+    window.verify_requested.connect(
+        lambda tab_name: controller.verify_tab_streams(tab_name, on_success=window.notify, on_error=on_error),
+    )
+    window.reset_requested.connect(lambda: _reset(window, controller))
+
+    if controller.config.last_input:
+        window.populate_form(controller.config.last_input)
+
+    qt_app.aboutToQuit.connect(lambda: controller.save_ui_state(window.width(), window.height()))
+    window.showFullScreen()
+    sys.exit(qt_app.exec())
+
+
+def _load_category(
+    controller: AppController,
+    tab_name: str,
+    category: PlaylistCategory,
+    on_error: Callable[[str], None],
+    on_success: Callable[[str], None],
+) -> None:
+    controller.load_items(
+        tab_name=tab_name,
+        category=category,
+        on_success=on_success,
+        on_error=on_error,
+    )
+
+
+def _activate_item(
+    controller: AppController,
+    tab_name: str,
+    item: MediaItem,
+    on_error: Callable[[str], None],
+    on_success: Callable[[str], None],
+) -> None:
+    controller.activate_item(tab_name, item, on_success=on_success, on_error=on_error)
+
+
+def _go_back(
+    controller: AppController,
+    tab_name: str,
+    on_success: Callable[[str], None],
+    on_error: Callable[[str], None],
+) -> None:
+    if controller.go_back(tab_name):
+        on_success("Returned to previous list")
+    else:
+        on_error("No previous list for this tab.")
+
+
+def _pick_history(window: MainWindow, controller: AppController, index: int) -> None:
+    history = controller.history_entries()
+    if 0 <= index < len(history):
+        window.populate_form(history[index])
+        window.notify("Loaded credentials from history")
+
+
+def _load_live_epg(
+    controller: AppController,
+    item: MediaItem,
+    on_error: Callable[[str], None],
+    on_success: Callable[[str], None],
+) -> None:
+    if item.item_type != "channel":
+        return
+    controller.load_live_epg(item, on_success=on_success, on_error=on_error)
+
+
+def _reset(window: MainWindow, controller: AppController) -> None:
+    controller.reset_form()
+    window.login_panel.clear()
+    _refresh_history_menu(window, controller)
+    window.notify("Form reset")
+
+
+def _on_connect_success(window: MainWindow, controller: AppController, message: str) -> None:
+    _refresh_history_menu(window, controller)
+    window.notify(message)
+
+
+def _refresh_history_menu(window: MainWindow, controller: AppController) -> None:
+    labels = [
+        f"{row.portal_type.value.upper()} | {row.base_url} | "
+        f"{row.username or row.mac_address or 'anonymous'}"
+        for row in controller.history_entries()
+    ]
+    window.set_history_actions(labels)
