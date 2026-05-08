@@ -18,6 +18,7 @@ from zone_new_companion.services.base import PortalService
 from zone_new_companion.services.network import DEFAULT_TIMEOUT, create_session
 from zone_new_companion.services.network_optimizer import OptimizedSession
 from zone_new_companion.services.logger_service import logger_service
+from zone_new_companion.services.ocr_service import OCRService
 
 
 @dataclass(slots=True)
@@ -33,6 +34,7 @@ class StreamVerifier:
 
     def __init__(self) -> None:
         self._session = OptimizedSession()
+        self._ocr_service = OCRService()
         self._verified_count = 0
         self._total_count = 0
 
@@ -107,6 +109,15 @@ class StreamVerifier:
             # Try ffprobe but be more permissive
             has_video, has_audio = self._probe_with_ffprobe(stream_url)
             
+            # If ffprobe fails but stream is reachable, use OCR for M3U8 streams
+            if not has_video and not has_audio and ".m3u8" in stream_url:
+                logger_service.debug(f"Using OCR for M3U8 stream: {item.name}")
+                is_valid_content, ocr_text = self._ocr_service.analyze_stream_frame(stream_url, timeout=10)
+                if is_valid_content:
+                    return VerificationResult(item_id=item.id, status="OK (OCR Validated)")
+                else:
+                    logger_service.debug(f"OCR validation failed: {ocr_text}")
+            
             # If ffprobe fails but stream is reachable, consider it OK
             if has_video and has_audio:
                 return VerificationResult(item_id=item.id, status="OK (Video+Audio)")
@@ -168,13 +179,24 @@ class StreamVerifier:
             
             lines = [line.strip() for line in content.splitlines() if line.strip()]
             
+            # Look for M3U-specific markers that indicate valid playlist
+            has_extinf = any('#EXTINF:' in line for line in lines)
+            has_ext_x_version = any('#EXT-X-VERSION:' in line for line in lines)
+            has_ext_x_stream = any('#EXT-X-STREAM-INF:' in line for line in lines)
+            has_ext_x_media = any('#EXT-X-MEDIA:' in line for line in lines)
+            
+            # If it has M3U markers, consider it valid even without segments
+            if has_extinf or has_ext_x_version or has_ext_x_stream or has_ext_x_media:
+                logger_service.debug(f"M3U8 playlist has valid markers: EXTINF={has_extinf}, VERSION={has_ext_x_version}, STREAM={has_ext_x_stream}")
+                return True
+            
             # Look for actual media segments (non-comment lines)
             segment_lines = [line for line in lines if not line.startswith('#')]
             
             if not segment_lines:
-                # No media segments found, check if it's a live stream with EXTINF
-                has_extinf = any('#EXTINF:' in line for line in lines)
-                return has_extinf  # Consider it valid if it has EXTINF entries
+                # No media segments found but has M3U structure, consider valid
+                logger_service.debug("M3U8 playlist has no segments but has valid structure")
+                return True
             
             # Try to access the first segment to verify it's accessible
             segment_line = segment_lines[0]
@@ -200,31 +222,119 @@ class StreamVerifier:
                 except:
                     ok = False
             segment_resp.close()
+            
+            # Even if segment check fails, if we have M3U structure, consider it valid
+            if not ok and (has_extinf or has_ext_x_version):
+                logger_service.debug("M3U8 segment check failed but playlist structure is valid")
+                return True
+                
             return ok
-        except RequestException:
+        except RequestException as e:
+            logger_service.debug(f"M3U8 check failed: {e}")
             return False
 
     def _probe_with_ffprobe(self, stream_url: str) -> tuple[bool, bool]:
+        # Enhanced FFprobe analysis for M3U8 streams
+        if ".m3u8" in stream_url:
+            return self._probe_m3u8_stream(stream_url)
+        else:
+            return self._probe_regular_stream(stream_url)
+
+    def _probe_m3u8_stream(self, stream_url: str) -> tuple[bool, bool]:
+        """Enhanced M3U8 stream probing with better error handling."""
+        commands = [
+            # First try: Basic stream info
+            [
+                "ffprobe",
+                "-v", "quiet",
+                "-show_entries", "stream=codec_type",
+                "-of", "json",
+                "-analyzeduration", "10",
+                "-probesize", "2000000",
+                stream_url
+            ],
+            # Second try: Format info for adaptive streams
+            [
+                "ffprobe",
+                "-v", "quiet",
+                "-show_entries", "format=duration",
+                "-of", "json",
+                "-analyzeduration", "15",
+                stream_url
+            ],
+            # Third try: More aggressive probing
+            [
+                "ffprobe",
+                "-v", "error",
+                "-show_entries", "stream=codec_type",
+                "-of", "json",
+                "-analyzeduration", "30",
+                "-probesize", "5000000",
+                "-threads", "1",
+                stream_url
+            ]
+        ]
+        
+        for i, command in enumerate(commands):
+            try:
+                creation_flags = 0x08000000 if sys.platform == "win32" else 0
+                completed = subprocess.run(
+                    command,
+                    capture_output=True,
+                    text=True,
+                    timeout=20 + (i * 5),  # Increasing timeout for each attempt
+                    check=False,
+                    creationflags=creation_flags,
+                )
+                
+                if completed.returncode == 0:
+                    payload = json.loads(completed.stdout or "{}")
+                    
+                    # Check streams first
+                    streams = payload.get("streams", [])
+                    if streams:
+                        has_video = any(stream.get("codec_type") == "video" for stream in streams)
+                        has_audio = any(stream.get("codec_type") == "audio" for stream in streams)
+                        if has_video or has_audio:
+                            logger_service.debug(f"M3U8 FFprobe success (attempt {i+1}): video={has_video}, audio={has_audio}")
+                            return has_video, has_audio
+                    
+                    # Check format info as fallback
+                    format_info = payload.get("format", {})
+                    if format_info.get("duration"):
+                        logger_service.debug(f"M3U8 format info found (attempt {i+1}): duration={format_info.get('duration')}")
+                        return True, True  # Assume both if we have duration
+                        
+                else:
+                    logger_service.debug(f"M3U8 FFprobe attempt {i+1} failed: {completed.stderr}")
+                    
+            except subprocess.TimeoutExpired:
+                logger_service.debug(f"M3U8 FFprobe timeout (attempt {i+1})")
+                continue
+            except (subprocess.SubprocessError, json.JSONDecodeError, OSError, ValueError) as e:
+                logger_service.debug(f"M3U8 FFprobe error (attempt {i+1}): {e}")
+                continue
+        
+        return False, False
+
+    def _probe_regular_stream(self, stream_url: str) -> tuple[bool, bool]:
+        """Regular stream probing for non-M3U8 streams."""
         command = [
             "ffprobe",
-            "-v",
-            "quiet",
-            "-show_entries",
-            "stream=codec_type",
-            "-of",
-            "json",
-            "-analyzeduration", "5",  # Shorter analysis time
-            "-probesize", "1000000",  # Smaller probe size
+            "-v", "quiet",
+            "-show_entries", "stream=codec_type",
+            "-of", "json",
+            "-analyzeduration", "5",
+            "-probesize", "1000000",
             stream_url,
         ]
         try:
-            # Hide terminal window on Windows
-            creation_flags = 0x08000000 if sys.platform == "win32" else 0  # CREATE_NO_WINDOW
+            creation_flags = 0x08000000 if sys.platform == "win32" else 0
             completed = subprocess.run(
                 command,
                 capture_output=True,
                 text=True,
-                timeout=15,  # Longer timeout
+                timeout=15,
                 check=False,
                 creationflags=creation_flags,
             )

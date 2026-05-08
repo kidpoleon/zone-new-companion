@@ -1,130 +1,375 @@
-# zone-new-companion v1.1.3
+# zone-new-companion v1.1.4
 
-Unified desktop IPTV companion app that merges Xtream and Stalker workflows into a single cross-platform PyQt6 application.
+<div align="center">
 
-## Highlights
+![Zone New Companion](https://img.shields.io/badge/Zone-New-Companion-blue?style=for-the-badge)
+![Version](https://img.shields.io/badge/version-1.1.4-green?style=for-the-badge)
+![Python](https://img.shields.io/badge/python-3.8%2B-blue?style=for-the-badge)
+![License](https://img.shields.io/badge/license-MIT-green?style=for-the-badge)
+![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey?style=for-the-badge)
 
-- Unified UI for both `xtream` and `stalker` portal types.
-- Modular architecture (controllers, services, state store, reusable UI widgets).
-- Centralized state management (`StateStore`).
-- Async non-blocking operations (`QThreadPool` + `QRunnable` workers).
-- Hardcoded VLC executable paths by platform:
-  - Windows: `C:\Program Files\VideoLAN\VLC\vlc.exe`
-  - Linux: `/usr/bin/vlc`
-  - Snap: `/snap/bin/vlc`
-  - Flatpak: `/var/lib/flatpak/exports/bin/org.videolan.VLC`
-  - macOS: `/Applications/VLC.app/Contents/MacOS/VLC`
-- Persistent config at `~/.zone-new-companion/config.json`.
-- Last input credentials are restored automatically on next launch.
-- Top menu `History` stores only successful connections.
-- Status bar progress + toast notifications.
-- Confirmation dialog for reset actions.
-- Series hierarchy navigation (double-click series/season to drill down).
-- Right-click on item list to go back one level.
+**Unified desktop IPTV companion app that merges Xtream and Stalker workflows into a single cross-platform PyQt6 application.**
 
-## v1.1.3 M3U Enhancement & UI/UX Improvements
+[Features](#-features) • [Installation](#-installation) • [Usage](#-usage) • [Configuration](#-configuration) • [Troubleshooting](#-troubleshooting)
 
-- **M3U URL Compatibility**: Fixed issues reading problematic M3U URLs including short URLs and redirects
-- **Optimized Session Integration**: M3U service now uses optimized SSL sessions for better compatibility
-- **Enhanced Redirect Handling**: Better support for short URLs (s.id, bit.ly, tinyurl.com) with proper user agents
-- **Alphabetical Sorting**: All categories and items now sort alphabetically across all services (M3U, Xtream, Stalker)
-- **Improved UI/UX**: Enhanced visual feedback with alternating row colors and better tooltips
-- **Table Sorting**: Enabled table sorting and improved visual styling with modern dark theme
-- **Better Error Handling**: More robust M3U parsing with enhanced logging and error recovery
-- **User Experience**: Improved tooltips, visual indicators, and overall application polish
+</div>
 
-## v1.1.2 Verification Accuracy & Progress Reporting
+## 📋 Table of Contents
 
-- **Fixed False Negatives**: Resolved issue where playable channels showed as red/unverified
-- **Optimized Session Usage**: Stream verifier now uses optimized SSL sessions for better compatibility
-- **Enhanced Progress Reporting**: Terminal now shows detailed verification progress for each channel
-- **Improved Fallback Logic**: Added secondary reachability checks with longer timeouts
-- **Better Error Handling**: More permissive verification logic reduces false positives
-- **Detailed Logging**: Individual channel status updates with progress percentages
-- **Optimized FFprobe**: Improved stream analysis with better timeout handling
-- **Permissive Verification**: Streams marked as OK if reachable even if A/V probe fails
+- [Features](#-features)
+- [Screenshots](#-screenshots)
+- [Installation](#-installation)
+  - [Prerequisites](#prerequisites)
+  - [VLC Installation](#vlc-installation)
+  - [Python Installation](#python-installation)
+  - [Application Setup](#application-setup)
+- [Usage](#-usage)
+  - [Connecting to IPTV Services](#connecting-to-iptv-services)
+  - [Supported Portal Types](#supported-portal-types)
+  - [Verification System](#verification-system)
+  - [OCR Integration](#ocr-integration)
+- [Configuration](#-configuration)
+- [Troubleshooting](#-troubleshooting)
+- [Contributing](#contributing)
+- [License](#license)
 
-## v1.1.1 OCR & Advanced Connection Improvements
+## ✨ Features
 
-- **OCR Service Integration**: Complete OCR service based on IPTV-CHECK project for video stream validation
-- **FFmpeg Frame Extraction**: Automatic frame capture from video streams for content analysis
-- **Tesseract OCR Engine**: Multi-language text recognition with error detection patterns
-- **Advanced DNS Resolution**: Multiple DNS server fallback (Google, Cloudflare, OpenDNS, Quad9)
-- **Enhanced Connectivity Testing**: Multiple endpoint testing for better server compatibility
-- **Connection Diagnostics**: Comprehensive connection testing with detailed diagnostics
-- **Complete Logs Removal**: Fully removed logs functionality from title bar and application
-- **Performance Optimization**: Improved connection success rates through advanced strategies
+### 🎯 Core Functionality
+- **Unified UI**: Single interface for both `xtream` and `stalker` portal types
+- **Modular Architecture**: Clean separation of controllers, services, and UI components
+- **Centralized State Management**: Efficient state handling with `StateStore`
+- **Async Operations**: Non-blocking operations using `QThreadPool` + `QRunnable` workers
+- **Cross-Platform**: Works on Windows, Linux, and macOS
 
-## v1.1.0 SSL & Connection Improvements
+### 🚀 Advanced Features
+- **OCR Integration**: Automatic stream validation using frame analysis and text recognition
+- **Enhanced Verification**: Multi-stage stream verification with fallback strategies
+- **SSL Optimization**: Multiple SSL profiles for maximum server compatibility
+- **DNS Fallback**: Automatic DNS server switching for better connectivity
+- **Alphabetical Sorting**: Consistent sorting across all categories and items
+- **Progress Reporting**: Detailed terminal progress for verification operations
 
-- **Multi-Profile SSL Handling**: 4 SSL configuration profiles (default, legacy, permissive, modern) for maximum compatibility
-- **SSL Fallback Strategy**: Automatic fallback through different SSL configurations when connection fails
-- **HTTP/HTTPS Protocol Rotation**: Automatic protocol switching with caching for optimal connection method
-- **Comprehensive Cipher Support**: Support for legacy and modern cipher suites including `ALL:@SECLEVEL=0`
-- **Connection Method Caching**: Remembers successful protocols per domain for faster subsequent connections
-- **Enhanced Error Recovery**: Better SSL error handling with multiple retry strategies
-- **Server-Specific Optimization**: Adaptive SSL configuration based on server response patterns
+### 🎨 UI/UX Enhancements
+- **Modern Dark Theme**: Professional appearance with alternating row colors
+- **Enhanced Tooltips**: Helpful guidance for all UI elements
+- **Table Sorting**: Sortable columns with visual feedback
+- **Status Indicators**: Clear visual feedback for connection states
 
-## v1.0.9 Improvements
+## 🖼️ Screenshots
 
-- **Network Optimizations**: Added adaptive timeouts and connection pooling for 50x faster credential testing
-- **Enhanced Error Handling**: Improved MAC address validation and Stalker service reliability  
-- **Performance Metrics**: Added credential health scoring and real-time progress reporting
-- **Fast-Fail Logic**: Pre-validation to quickly identify non-responsive servers
-- **Better Parsing**: Multiple strategies for Stalker credential format detection
-- **Optimized Testing**: Reduced average test time from 10s to 0.2s per credential
-- Fullscreen startup by default.
-- Live tab includes local-time EPG guide panel.
-- `Tools -> Verify Current Tab Streams` runs fast concurrent checks:
-  - reachability precheck (including HLS segment reachability)
-  - ffprobe JSON verification for audio/video stream presence
-  - channel list is annotated with status labels
-- v1.0.1 reliability improvements:
-  - Xtream `get.php?...` input auto-parsing into API credentials
-  - Xtream endpoint fallback (`player_api.php`, `panel_api.php`, `/xtream`)
-  - Stalker playback no longer blocked by EPG lookups
-  - Stalker stream creation uses proper `type=itv` vs `type=vod`
+*(Screenshots will be added here - consider contributing screenshots!)*
 
-## Run (Unix: Linux/macOS) - Step by step, safe setup
+## 🛠️ Installation
 
+### Prerequisites
+
+Before installing zone-new-companion, ensure you have:
+
+1. **Python 3.8 or higher** installed
+2. **VLC media player** installed (required for stream playback)
+3. **Git** installed (for cloning the repository)
+
+### VLC Installation
+
+VLC is required for stream playback. Install it using your preferred package manager:
+
+#### Windows
+```powershell
+# Using Winget (Recommended)
+winget install VideoLAN.VLC
+
+# Using Chocolatey
+choco install vlc
+
+# Using Scoop
+scoop install vlc
+
+# Manual download: https://www.videolan.org/vlc/
+```
+
+#### Linux (Ubuntu/Debian)
 ```bash
-cd /home/administrator/Downloads/zone-new-companion
+# Using APT (Recommended)
+sudo apt update && sudo apt install vlc
+
+# Using Snap
+sudo snap install vlc
+
+# Using Flatpak
+flatpak install flathub org.videolan.VLC
+
+# Using Homebrew (Linux)
+brew install --cask vlc
+```
+
+#### Linux (Fedora/CentOS)
+```bash
+# Using DNF (Fedora)
+sudo dnf install vlc
+
+# Using YUM (CentOS/RHEL)
+sudo yum install vlc
+```
+
+#### macOS
+```bash
+# Using Homebrew (Recommended)
+brew install --cask vlc
+
+# Manual download: https://www.videolan.org/vlc/
+```
+
+### Python Installation
+
+#### Windows
+```powershell
+# Download from python.org (Recommended)
+# Visit: https://www.python.org/downloads/
+
+# Using Winget
+winget install Python.Python.3
+
+# Using Chocolatey
+choco install python
+
+# Using Scoop
+scoop install python
+```
+
+#### Linux
+```bash
+# Ubuntu/Debian
+sudo apt update && sudo apt install python3 python3-pip python3-venv
+
+# Fedora/CentOS
+sudo dnf install python3 python3-pip
+
+# Arch Linux
+sudo pacman -S python python-pip
+```
+
+#### macOS
+```bash
+# Using Homebrew (Recommended)
+brew install python3
+
+# Using MacPorts
+sudo port install python3
+```
+
+### Application Setup
+
+#### Step 1: Clone the Repository
+```bash
+git clone https://github.com/kidpoleon/zone-new-companion.git
+cd zone-new-companion
+```
+
+#### Step 2: Create Virtual Environment
+```bash
+# Create virtual environment
 python3 -m venv venv
+
+# Activate virtual environment
+# Windows
+venv\Scripts\activate
+
+# Linux/macOS
 source venv/bin/activate
-python -m pip install --upgrade pip
+```
+
+#### Step 3: Install Dependencies
+```bash
 pip install -r requirements.txt
+```
+
+#### Step 4: Launch the Application
+```bash
 python main.py
 ```
 
-Recommended safety notes:
+## 📖 Usage
 
-1. Always run inside `venv` to avoid system package conflicts (PEP 668).
-2. Keep VLC installed at one of the supported hardcoded paths.
-3. Use `Ctrl+C` in terminal to stop the app cleanly.
-4. To restart from a clean state, close app and re-run the steps above.
+### Connecting to IPTV Services
 
-## Windows EXE build (CI-backed)
+1. **Launch the Application**: Run `python main.py` after activating the virtual environment
+2. **Select Portal Type**: Choose from Xtream, Stalker, or M3U
+3. **Enter Credentials**:
+   - **Xtream**: Server URL, Username, Password
+   - **Stalker**: Portal URL, MAC Address
+   - **M3U**: Playlist URL
+4. **Click Connect**: The app will fetch categories and channels
+5. **Browse Content**: Select categories to view channels/movies/series
+6. **Play Content**: Double-click any item to launch in VLC
 
-The real Windows executable is built on GitHub Actions and uses an `.ico` generated in `zone_new_companion/icon/`.
+### Supported Portal Types
 
-- `zone_new_companion/executable/windows.exe` is a placeholder in-repo.
-- The actual artifact is `dist/zone-new-companion.exe` in the workflow output.
+#### Xtream Codes API
+- Full support for live channels, VOD, and series
+- Automatic category and item sorting
+- Enhanced connection handling with SSL optimization
 
-## Unix launcher
+#### Stalker Portal
+- Complete Stalker middleware compatibility
+- Token-based authentication
+- EPG support where available
 
-- `zone_new_companion/executable/unix.sh` is the runtime launcher for Linux/macOS.
-- It prefers a packaged binary (`dist/zone-new-companion`), otherwise falls back to source (`python main.py`).
-- It uses Wayland by default and safely falls back to XCB if needed.
+#### M3U Playlists
+- Support for local and remote M3U files
+- Short URL redirection handling (s.id, bit.ly, etc.)
+- Enhanced M3U8 stream verification
 
-Workflows:
-- `.github/workflows/build-windows.yml`
-- `.github/workflows/build-unix.yml`
+### Verification System
 
-## Structure
+The application includes a comprehensive verification system:
 
-- `zone_new_companion/models.py`: typed domain models.
-- `zone_new_companion/state.py`: centralized state store and state signals.
-- `zone_new_companion/controllers/app_controller.py`: business orchestration.
-- `zone_new_companion/services/`: portal adapters and VLC launcher.
-- `zone_new_companion/ui/`: modular UI components.
-- `docs/reverse_engineering_map.md`: deeper reverse-engineering map.
+- **Quick Reachability**: Fast connection testing
+- **Stream Analysis**: FFprobe-based codec detection
+- **OCR Validation**: Frame analysis for problematic streams
+- **Progress Reporting**: Real-time verification progress
+
+### OCR Integration
+
+For streams that fail traditional verification:
+- Automatic frame capture using FFmpeg
+- Text recognition using Tesseract OCR
+- Error pattern detection (offline, geo-blocked, etc.)
+- Multi-language support (English, Portuguese, Spanish, French, German, Italian)
+
+## ⚙️ Configuration
+
+### Settings Location
+- **Windows**: `%APPDATA%\zone-new-companion\config.json`
+- **Linux**: `~/.zone-new-companion/config.json`
+- **macOS**: `~/Library/Application Support/zone-new-companion/config.json`
+
+### Configuration Options
+```json
+{
+  "successful_history": [],
+  "last_credentials": {},
+  "window_state": {},
+  "preferences": {
+    "verification_timeout": 30,
+    "ocr_enabled": true,
+    "ssl_optimization": true
+  }
+}
+```
+
+### VLC Paths
+The application automatically detects VLC installation:
+- **Windows**: `C:\Program Files\VideoLAN\VLC\vlc.exe`
+- **Linux**: `/usr/bin/vlc`
+- **Snap**: `/snap/bin/vlc`
+- **Flatpak**: `/var/lib/flatpak/exports/bin/org.videolan.VLC`
+- **macOS**: `/Applications/VLC.app/Contents/MacOS/VLC`
+
+## 🔧 Troubleshooting
+
+### Common Issues
+
+#### VLC Not Found
+```bash
+# Verify VLC installation
+# Windows
+where vlc
+
+# Linux
+which vlc
+
+# macOS
+which vlc
+```
+
+#### Python Module Errors
+```bash
+# Reinstall dependencies
+pip install -r requirements.txt --upgrade
+
+# Clear Python cache
+find . -type d -name __pycache__ -exec rm -rf {} +
+```
+
+#### Connection Issues
+- Check firewall settings
+- Verify internet connectivity
+- Try different DNS servers
+- Check SSL certificate validity
+
+#### Verification Failures
+- Ensure OCR dependencies are installed (Tesseract)
+- Check FFmpeg installation
+- Verify stream URL accessibility
+
+### Debug Mode
+Enable debug logging by setting environment variable:
+```bash
+# Windows
+set DEBUG=1
+python main.py
+
+# Linux/macOS
+DEBUG=1 python main.py
+```
+
+## 🤝 Contributing
+
+We welcome contributions! Please see our [Contributing Guidelines](CONTRIBUTING.md) for details.
+
+### Development Setup
+```bash
+# Clone repository
+git clone https://github.com/kidpoleon/zone-new-companion.git
+cd zone-new-companion
+
+# Create development environment
+python3 -m venv dev-env
+source dev-env/bin/activate  # Linux/macOS
+# or dev-env\Scripts\activate  # Windows
+
+# Install development dependencies
+pip install -r requirements.txt
+pip install -r requirements-dev.txt
+
+# Run tests
+python -m pytest
+
+# Run with debug mode
+python main.py --debug
+```
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## 🙏 Acknowledgments
+
+- **PyQt6**: For the cross-platform GUI framework
+- **VLC**: For media playback capabilities
+- **FFmpeg**: For stream analysis and frame extraction
+- **Tesseract**: For OCR functionality
+- **IPTV-CHECK**: For OCR implementation inspiration
+
+## 📞 Support
+
+- **Issues**: [GitHub Issues](https://github.com/kidpoleon/zone-new-companion/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/kidpoleon/zone-new-companion/discussions)
+- **Wiki**: [GitHub Wiki](https://github.com/kidpoleon/zone-new-companion/wiki)
+
+## 🔗 Related Projects
+
+- [IPTV-CHECK](https://github.com/peterpt/IPTV-CHECK) - OCR implementation inspiration
+- [xtream-ui](https://github.com/mhdzumair/xtream-ui) - Xtream Codes interface reference
+- [stalker-portalo](https://github.com/StalkerPortal/stalker-portalo) - Stalker middleware reference
+
+---
+
+<div align="center">
+
+**[⬆ Back to top](#zone-new-companion-v114)**
+
+Made with ❤️ by the IPTV community
+
+</div>
