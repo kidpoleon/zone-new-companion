@@ -1,4 +1,4 @@
-# zone-new-companion v1.1.1
+# zone-new-companion v1.1.2
 
 Unified desktop IPTV companion app that merges Xtream and Stalker workflows into a single cross-platform PyQt6 application.
 
@@ -21,6 +21,17 @@ Unified desktop IPTV companion app that merges Xtream and Stalker workflows into
 - Confirmation dialog for reset actions.
 - Series hierarchy navigation (double-click series/season to drill down).
 - Right-click on item list to go back one level.
+
+## v1.1.2 Verification Accuracy & Progress Reporting
+
+- **Fixed False Negatives**: Resolved issue where playable channels showed as red/unverified
+- **Optimized Session Usage**: Stream verifier now uses optimized SSL sessions for better compatibility
+- **Enhanced Progress Reporting**: Terminal now shows detailed verification progress for each channel
+- **Improved Fallback Logic**: Added secondary reachability checks with longer timeouts
+- **Better Error Handling**: More permissive verification logic reduces false positives
+- **Detailed Logging**: Individual channel status updates with progress percentages
+- **Optimized FFprobe**: Improved stream analysis with better timeout handling
+- **Permissive Verification**: Streams marked as OK if reachable even if A/V probe fails
 
 ## v1.1.1 OCR & Advanced Connection Improvements
 
