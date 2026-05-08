@@ -16,7 +16,10 @@ def candidate_vlc_paths() -> list[str]:
     """Return ordered VLC paths per platform."""
     system = platform.system().lower()
     if system == "windows":
-        return [r"C:\Program Files\VideoLAN\VLC\vlc.exe"]
+        return [
+            r"C:\Program Files\VideoLAN\VLC\vlc.exe",
+            r"C:\Program Files (x86)\VideoLAN\VLC\vlc.exe",
+        ]
     if system == "darwin":
         return ["/Applications/VLC.app/Contents/MacOS/VLC"]
     return [
@@ -38,28 +41,49 @@ def resolve_vlc_path() -> str:
 
 
 def launch_stream(stream_url: str) -> None:
-    """Launch stream with VLC."""
+    """Launch stream with VLC.
+
+    Args:
+        stream_url: The URL to play. Must be a complete, valid URL.
+
+    Raises:
+        FileNotFoundError: If VLC is not found.
+        RuntimeError: If VLC fails to launch.
+    """
+    if not stream_url:
+        raise ValueError("Stream URL is empty")
+
     vlc_path = resolve_vlc_path()
     if not vlc_path:
         raise FileNotFoundError(
-            "VLC executable not found. Install VLC or ensure it is available at one of: "
-            + ", ".join(candidate_vlc_paths()),
+            "VLC not found. Install VLC from videolan.org"
         )
-    LOGGER.info("Launching VLC at %s", vlc_path)
-    
-    # Platform-specific launch options
+
+    LOGGER.info("Launching VLC: %s", vlc_path)
+    LOGGER.info("Stream URL: %s", stream_url[:80])
+
+    # Build command with proper URL handling
+    # Use --open to ensure URL is treated as a network stream
+    cmd = [
+        vlc_path,
+        "--network-caching=1000",
+        "--http-user-agent=Lavf/57.83.100",
+        stream_url,
+    ]
+
+    # Windows-specific startup info to hide console window
     startupinfo = None
     if platform.system() == "Windows":
         startupinfo = subprocess.STARTUPINFO()
         startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
         startupinfo.wShowWindow = subprocess.SW_HIDE
-    
+
     try:
         subprocess.Popen(
-            [vlc_path, stream_url], 
-            stdout=subprocess.DEVNULL, 
+            cmd,
+            stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
-            startupinfo=startupinfo
+            startupinfo=startupinfo,
         )
     except Exception as e:
         LOGGER.error("Failed to launch VLC: %s", e)
