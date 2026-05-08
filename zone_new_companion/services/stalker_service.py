@@ -397,35 +397,38 @@ class StalkerService(PortalService):
         channel_id = str(item.metadata.get("id", item.id))
         cmd = str(item.metadata.get("cmd", "")).strip()
 
-        logger_service.info(f"Resolving stream for channel_id={channel_id}, cmd={cmd[:50] if cmd else 'None'}")
+        logger_service.info(f"Resolving stream for channel_id={channel_id}, cmd={cmd[:80] if cmd else 'None'}")
 
-        # Strategy 1: Try the standard create_link endpoint
+        # Strategy 1: Use cmd field directly (most reliable for this portal type)
+        # The cmd field often contains the full play.php URL with stream ID
+        if cmd and "stream=" in cmd:
+            try:
+                stream_url = self._extract_from_cmd(cmd, credentials)
+                if stream_url and "stream=" in stream_url and not "stream=&" in stream_url:
+                    logger_service.info(f"Strategy 1 SUCCESS - cmd extract returned: {stream_url}")
+                    return stream_url
+                logger_service.warning(f"Strategy 1 - cmd extract returned incomplete URL: {stream_url}")
+            except Exception as e:
+                logger_service.warning(f"Strategy 1 FAILED - cmd extract error: {e}")
+
+        # Strategy 2: Try the standard create_link endpoint
         try:
             stream_url = self._resolve_via_create_link(credentials, item, channel_id)
-            if stream_url:
-                logger_service.info(f"Strategy 1 SUCCESS - create_link returned: {stream_url}")
+            if stream_url and "stream=" in stream_url and not "stream=&" in stream_url:
+                logger_service.info(f"Strategy 2 SUCCESS - create_link returned: {stream_url}")
                 return stream_url
+            logger_service.warning(f"Strategy 2 - create_link returned incomplete URL: {stream_url}")
         except Exception as e:
-            logger_service.warning(f"Strategy 1 FAILED - create_link error: {e}")
+            logger_service.warning(f"Strategy 2 FAILED - create_link error: {e}")
 
-        # Strategy 2: Try play/live.php format (common in some portals)
+        # Strategy 3: Try play/live.php format with our own token
         try:
             stream_url = self._resolve_via_play_endpoint(credentials, channel_id)
             if stream_url:
-                logger_service.info(f"Strategy 2 SUCCESS - play_endpoint returned: {stream_url}")
+                logger_service.info(f"Strategy 3 SUCCESS - play_endpoint returned: {stream_url}")
                 return stream_url
         except Exception as e:
-            logger_service.warning(f"Strategy 2 FAILED - play_endpoint error: {e}")
-
-        # Strategy 3: Try direct cmd construction
-        if cmd:
-            try:
-                stream_url = self._extract_from_cmd(cmd, credentials)
-                if stream_url:
-                    logger_service.info(f"Strategy 3 SUCCESS - cmd extract returned: {stream_url}")
-                    return stream_url
-            except Exception as e:
-                logger_service.warning(f"Strategy 3 FAILED - cmd extract error: {e}")
+            logger_service.warning(f"Strategy 3 FAILED - play_endpoint error: {e}")
 
         raise ValueError("All stream resolution strategies failed")
 
@@ -434,13 +437,12 @@ class StalkerService(PortalService):
         endpoint = self._get_portal_endpoint()
         stream_type = "itv" if item.item_type == "channel" else "vod"
 
-        # Build cmd parameter - use the item's cmd field if available
-        cmd = str(item.metadata.get("cmd", "")).strip()
-        if not cmd:
-            cmd = channel_id
+        # Build cmd parameter - use ffmpeg prefix format
+        # Many Stalker portals expect "ffmpeg <channel_id>" format
+        cmd = f"ffmpeg {channel_id}"
 
         encoded = quote(cmd)
-        logger_service.info(f"create_link request: endpoint={endpoint}, type={stream_type}, cmd={cmd[:50]}")
+        logger_service.info(f"create_link request: endpoint={endpoint}, type={stream_type}, cmd={cmd}")
 
         response = self._session.get(
             endpoint,
