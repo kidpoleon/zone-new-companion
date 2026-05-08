@@ -343,7 +343,25 @@ class AppController:
 
         def task() -> dict[str, str]:
             service = self._service_for(profile)
-            return self._verifier.verify_items(service, profile, tab_items)
+            
+            # Real-time verification callback
+            def on_verification_update(item_id: str, status: str, verified_count: int, total_count: int):
+                # Update verification results in real-time
+                verification = dict(self._state_store.state.verification_results)
+                if tab_name not in verification:
+                    verification[tab_name] = {}
+                verification[tab_name][item_id] = status
+                
+                # Update status text with progress
+                progress_percent = (verified_count / total_count) * 100
+                status_text = f"Verifying {verified_count}/{total_count} ({progress_percent:.1f}%)"
+                
+                self._state_store.update(
+                    verification_results=verification,
+                    status_text=status_text
+                )
+            
+            return self._verifier.verify_items(service, profile, tab_items, progress_callback=on_verification_update)
 
         worker = TaskWorker(task)
         worker.signals.succeeded.connect(

@@ -38,17 +38,30 @@ class OCRService:
     
     def _check_tesseract(self) -> bool:
         """Check if Tesseract OCR is available."""
-        try:
-            result = subprocess.run(
-                ["tesseract", "--version"], 
-                capture_output=True, 
-                text=True, 
-                timeout=5
-            )
-            return result.returncode == 0
-        except (subprocess.TimeoutExpired, FileNotFoundError):
-            logger_service.warning("Tesseract not found - OCR functionality disabled")
-            return False
+        # Try multiple possible tesseract commands
+        tesseract_commands = ["tesseract", "tesseract.exe", "/usr/bin/tesseract", "/usr/local/bin/tesseract"]
+        
+        for cmd in tesseract_commands:
+            try:
+                result = subprocess.run(
+                    [cmd, "--version"], 
+                    capture_output=True, 
+                    text=True, 
+                    timeout=5
+                )
+                if result.returncode == 0:
+                    logger_service.info(f"Tesseract found at: {cmd}")
+                    return True
+            except (subprocess.TimeoutExpired, FileNotFoundError):
+                continue
+        
+        logger_service.error("Tesseract OCR not found - OCR functionality disabled")
+        logger_service.info("To enable OCR, install Tesseract:")
+        logger_service.info("  Ubuntu/Debian: sudo apt install tesseract-ocr")
+        logger_service.info("  Fedora/CentOS: sudo dnf install tesseract")
+        logger_service.info("  macOS: brew install tesseract")
+        logger_service.info("  Windows: Download from https://github.com/UB-Mannheim/tesseract/wiki")
+        return False
     
     def analyze_stream_frame(self, stream_url: str, timeout: int = 10) -> Tuple[bool, str]:
         """

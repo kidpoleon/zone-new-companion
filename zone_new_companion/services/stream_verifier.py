@@ -7,7 +7,7 @@ import subprocess
 import sys
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
-from typing import Iterable
+from typing import Iterable, Protocol
 from urllib.parse import urljoin
 
 import requests
@@ -44,6 +44,7 @@ class StreamVerifier:
         credentials: Credentials,
         items: Iterable[MediaItem],
         workers: int = 8,
+        progress_callback=None,
     ) -> dict[str, str]:
         """Verify items concurrently and return status map keyed by item id."""
         status_by_id: dict[str, str] = {}
@@ -75,10 +76,17 @@ class StreamVerifier:
                         f"- {item.name}: {result.status}"
                     )
                     
+                    # Emit real-time update if callback provided
+                    if progress_callback:
+                        progress_callback(item.id, result.status, self._verified_count, self._total_count)
                 except (RuntimeError, ValueError, OSError) as e:
                     status_by_id[item.id] = "OFF (Verify Error)"
                     self._verified_count += 1
                     logger_service.error(f"Channel {self._verified_count}/{self._total_count} - {item.name}: Verification error - {e}")
+                    
+                    # Emit real-time update for errors too
+                    if progress_callback:
+                        progress_callback(item.id, "OFF (Verify Error)", self._verified_count, self._total_count)
                     
         logger_service.info(f"Verification complete: {self._verified_count} channels processed")
         return status_by_id

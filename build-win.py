@@ -25,7 +25,7 @@ def build_executable():
             import shutil
             shutil.rmtree(path)
     
-    # Build command for Windows systems
+    # Build command for Windows systems with OCR support
     cmd = [
         sys.executable, "-m", "PyInstaller",
         "--noconfirm",
@@ -35,6 +35,15 @@ def build_executable():
         "--name", "zone-new-companion",
         "--icon", str(icon_path),
         "--add-data", f"{icon_path}{os.pathsep}zone_new_companion/icon",
+        "--add-data", "media{os.pathsep}media",
+        "--hidden-import", "pytesseract",
+        "--hidden-import", "cv2",
+        "--hidden-import", "numpy",
+        "--hidden-import", "PIL",
+        "--collect-all", "pytesseract",
+        "--collect-all", "cv2",
+        "--exclude-module", "matplotlib",
+        "--exclude-module", "scipy",
         "main.py"
     ]
     

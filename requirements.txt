@@ -1,5 +1,8 @@
-PyQt6>=6.7
-requests>=2.32
-qdarkstyle>=3.2
+PyQt6>=6.7.0
+requests>=2.32.0
+qdarkstyle>=3.2.0
 Pillow>=10.0.0
 pyinstaller>=6.0.0
+pytesseract>=0.3.10
+opencv-python>=4.8.0
+numpy>=1.24.0

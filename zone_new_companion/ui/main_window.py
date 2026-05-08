@@ -252,6 +252,20 @@ class MainWindow(QMainWindow):
                 if not status:
                     status = state.verification_results.get(tab_name, {}).get(media.id, "")
                 status_item = QTableWidgetItem(status)
+                
+                # Apply color highlighting based on verification status
+                if status.startswith("OK") or status.startswith("✓"):
+                    status_item.setBackground(QColor("#2d5a2d"))  # Green for good
+                    status_item.setForeground(QColor("#ffffff"))  # White text
+                elif status.startswith("OFF") or status.startswith("✗"):
+                    status_item.setBackground(QColor("#8b0000"))  # Dark red for unreachable
+                    status_item.setForeground(QColor("#ffffff"))  # White text
+                elif status.startswith("UNSTABLE") or status.startswith("⚠"):
+                    status_item.setBackground(QColor("#ff8c00"))  # Orange/yellow for unstable
+                    status_item.setForeground(QColor("#000000"))  # Black text
+                else:
+                    status_item.setBackground(QColor("#4a4a4a"))  # Gray for unknown
+                    status_item.setForeground(QColor("#ffffff"))  # White text
                 table.setItem(row, 0, name_item)
                 table.setItem(row, 1, now_item)
                 table.setItem(row, 2, status_item)

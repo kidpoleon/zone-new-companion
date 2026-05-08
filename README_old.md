@@ -1,8 +1,12 @@
+# zone-new-companion v1.1.4
+
 <div align="center">
 
-![Zone New Companion](media/logo.png)
-
-# Zone New Companion
+![Zone New Companion](https://img.shields.io/badge/Zone-New-Companion-blue?style=for-the-badge)
+![Version](https://img.shields.io/badge/version-1.1.4-green?style=for-the-badge)
+![Python](https://img.shields.io/badge/python-3.8%2B-blue?style=for-the-badge)
+![License](https://img.shields.io/badge/license-MIT-green?style=for-the-badge)
+![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey?style=for-the-badge)
 
 **Unified desktop IPTV companion app that merges Xtream and Stalker workflows into a single cross-platform PyQt6 application.**
 
@@ -28,7 +32,6 @@
 - [Troubleshooting](#-troubleshooting)
 - [Contributing](#contributing)
 - [License](#license)
-- [Credits](#credits)
 
 ## ✨ Features
 
@@ -45,25 +48,17 @@
 - **SSL Optimization**: Multiple SSL profiles for maximum server compatibility
 - **DNS Fallback**: Automatic DNS server switching for better connectivity
 - **Alphabetical Sorting**: Consistent sorting across all categories and items
-- **Real-Time Updates**: Live verification progress with color-coded status indicators
+- **Progress Reporting**: Detailed terminal progress for verification operations
 
 ### 🎨 UI/UX Enhancements
 - **Modern Dark Theme**: Professional appearance with alternating row colors
 - **Enhanced Tooltips**: Helpful guidance for all UI elements
-- **Color-Coded Status**: Green (good), Red (unreachable), Yellow (unstable) verification results
-- **Real-Time Progress**: Rolling verification updates instead of batch processing
+- **Table Sorting**: Sortable columns with visual feedback
 - **Status Indicators**: Clear visual feedback for connection states
 
 ## 🖼️ Screenshots
 
-### Main Interface
-![Main Interface](media/app_1.png)
-
-### Channel Verification
-![Channel Verification](media/app_2.png)
-
-### Stream Playback
-![Stream Playback](media/app_3.png)
+*(Screenshots will be added here - consider contributing screenshots!)*
 
 ## 🛠️ Installation
 
@@ -74,7 +69,6 @@ Before installing zone-new-companion, ensure you have:
 1. **Python 3.8 or higher** installed
 2. **VLC media player** installed (required for stream playback)
 3. **Git** installed (for cloning the repository)
-4. **Tesseract OCR** (optional, for enhanced stream validation)
 
 ### VLC Installation
 
@@ -124,34 +118,6 @@ sudo yum install vlc
 brew install --cask vlc
 
 # Manual download: https://www.videolan.org/vlc/
-```
-
-### Tesseract OCR Installation (Optional)
-
-For enhanced stream validation with OCR functionality:
-
-#### Windows
-```powershell
-# Download and install from: https://github.com/UB-Mannheim/tesseract/wiki
-# Add to PATH during installation
-```
-
-#### Linux
-```bash
-# Ubuntu/Debian
-sudo apt install tesseract-ocr
-
-# Fedora/CentOS
-sudo dnf install tesseract
-
-# Arch Linux
-sudo pacman -S tesseract
-```
-
-#### macOS
-```bash
-# Using Homebrew
-brew install tesseract
 ```
 
 ### Python Installation
@@ -260,15 +226,8 @@ The application includes a comprehensive verification system:
 
 - **Quick Reachability**: Fast connection testing
 - **Stream Analysis**: FFprobe-based codec detection
-- **Real-Time Updates**: Live verification progress with color-coded results
-- **Progress Reporting**: Detailed terminal progress for verification operations
-
-### Color-Coded Status Indicators
-
-- **🟢 Green**: Stream is verified and working properly
-- **🔴 Red**: Stream is unreachable or has major issues
-- **🟡 Yellow**: Stream is unstable or has intermittent issues
-- **⚪ Gray**: Stream status is unknown or not yet verified
+- **OCR Validation**: Frame analysis for problematic streams
+- **Progress Reporting**: Real-time verification progress
 
 ### OCR Integration
 
@@ -322,18 +281,6 @@ which vlc
 
 # macOS
 which vlc
-```
-
-#### Tesseract OCR Not Found
-```bash
-# Verify Tesseract installation
-# Windows
-tesseract --version
-
-# Linux/macOS
-tesseract --version
-
-# If not found, follow the installation steps above
 ```
 
 #### Python Module Errors
@@ -397,17 +344,8 @@ python main.py --debug
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## 🙏 Credits
+## 🙏 Acknowledgments
 
-### Original Inspiration
-This project was inspired by the original work of **Cyogenus** (Maiwand) and their excellent IPTV player projects:
-
-- [XTREME IPTV PLAYER by MY-1](https://github.com/Cyogenus/XTREME-IPTV-PLAYER-by-MY-1)
-- [IPTV MAC STALKER PLAYER BY MY-1](https://github.com/Cyogenus/IPTV-MAC-STALKER-PLAYER-BY-MY-1)
-
-Their pioneering work in IPTV client development laid the foundation for this unified companion application.
-
-### Acknowledgments
 - **PyQt6**: For the cross-platform GUI framework
 - **VLC**: For media playback capabilities
 - **FFmpeg**: For stream analysis and frame extraction
@@ -430,7 +368,7 @@ Their pioneering work in IPTV client development laid the foundation for this un
 
 <div align="center">
 
-**[⬆ Back to top](#zone-new-companion)**
+**[⬆ Back to top](#zone-new-companion-v114)**
 
 Made with ❤️ by the IPTV community
 
