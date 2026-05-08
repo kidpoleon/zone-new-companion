@@ -59,11 +59,15 @@ def launch_stream(stream_url: str) -> None:
             "VLC not found. Install VLC from videolan.org"
         )
 
-    LOGGER.info("Launching VLC: %s", vlc_path)
-    LOGGER.info("Stream URL: %s", stream_url[:80])
+    # Log full URL for debugging (no truncation)
+    LOGGER.info("=" * 80)
+    LOGGER.info("LAUNCHING VLC")
+    LOGGER.info("VLC Path: %s", vlc_path)
+    LOGGER.info("Stream URL (FULL): %s", stream_url)
+    LOGGER.info("Stream URL Length: %d characters", len(stream_url))
+    LOGGER.info("=" * 80)
 
     # Build command with proper URL handling
-    # Use --open to ensure URL is treated as a network stream
     cmd = [
         vlc_path,
         "--network-caching=1000",
@@ -79,12 +83,13 @@ def launch_stream(stream_url: str) -> None:
         startupinfo.wShowWindow = subprocess.SW_HIDE
 
     try:
-        subprocess.Popen(
+        process = subprocess.Popen(
             cmd,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
             startupinfo=startupinfo,
         )
+        LOGGER.info("VLC launched with PID: %s", process.pid)
     except Exception as e:
         LOGGER.error("Failed to launch VLC: %s", e)
         raise RuntimeError(f"Failed to launch VLC: {e}")

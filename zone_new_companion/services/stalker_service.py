@@ -393,43 +393,39 @@ class StalkerService(PortalService):
         """Resolve stream URL with multiple fallback strategies."""
         self.connect(credentials)
 
-        # Get channel ID
-        channel_id = item.id
+        # Get channel ID from item metadata
+        channel_id = str(item.metadata.get("id", item.id))
         cmd = str(item.metadata.get("cmd", "")).strip()
 
-        # Try to extract channel ID from cmd if available
-        if cmd:
-            # CMD often contains the channel ID
-            cmd_parts = cmd.split()
-            if cmd_parts:
-                potential_id = cmd_parts[-1].strip()
-                if potential_id.isdigit():
-                    channel_id = potential_id
+        logger_service.info(f"Resolving stream for channel_id={channel_id}, cmd={cmd[:50] if cmd else 'None'}")
 
         # Strategy 1: Try the standard create_link endpoint
         try:
             stream_url = self._resolve_via_create_link(credentials, item, channel_id)
             if stream_url:
-                logger_service.info(f"Resolved stream via create_link: {stream_url[:60]}...")
+                logger_service.info(f"Strategy 1 SUCCESS - create_link returned: {stream_url}")
                 return stream_url
         except Exception as e:
-            logger_service.warning(f"create_link failed: {e}")
+            logger_service.warning(f"Strategy 1 FAILED - create_link error: {e}")
 
         # Strategy 2: Try play/live.php format (common in some portals)
         try:
             stream_url = self._resolve_via_play_endpoint(credentials, channel_id)
             if stream_url:
-                logger_service.info(f"Resolved stream via play endpoint: {stream_url[:60]}...")
+                logger_service.info(f"Strategy 2 SUCCESS - play_endpoint returned: {stream_url}")
                 return stream_url
         except Exception as e:
-            logger_service.warning(f"play endpoint failed: {e}")
+            logger_service.warning(f"Strategy 2 FAILED - play_endpoint error: {e}")
 
         # Strategy 3: Try direct cmd construction
         if cmd:
-            stream_url = self._extract_from_cmd(cmd, credentials)
-            if stream_url:
-                logger_service.info(f"Resolved stream from cmd: {stream_url[:60]}...")
-                return stream_url
+            try:
+                stream_url = self._extract_from_cmd(cmd, credentials)
+                if stream_url:
+                    logger_service.info(f"Strategy 3 SUCCESS - cmd extract returned: {stream_url}")
+                    return stream_url
+            except Exception as e:
+                logger_service.warning(f"Strategy 3 FAILED - cmd extract error: {e}")
 
         raise ValueError("All stream resolution strategies failed")
 
@@ -438,12 +434,13 @@ class StalkerService(PortalService):
         endpoint = self._get_portal_endpoint()
         stream_type = "itv" if item.item_type == "channel" else "vod"
 
-        # Build cmd parameter
+        # Build cmd parameter - use the item's cmd field if available
         cmd = str(item.metadata.get("cmd", "")).strip()
         if not cmd:
             cmd = channel_id
 
         encoded = quote(cmd)
+        logger_service.info(f"create_link request: endpoint={endpoint}, type={stream_type}, cmd={cmd[:50]}")
 
         response = self._session.get(
             endpoint,
@@ -460,26 +457,32 @@ class StalkerService(PortalService):
         response.raise_for_status()
 
         js = response.json().get("js", {})
+        logger_service.info(f"create_link response: {js}")
 
         # Try to get URL from response
         raw_url = js.get("url") or js.get("cmd") or ""
 
         if raw_url:
-            return self._clean_stream_url(str(raw_url), credentials)
+            cleaned = self._clean_stream_url(str(raw_url), credentials)
+            logger_service.info(f"create_link cleaned URL: {cleaned}")
+            return cleaned
 
         return None
 
     def _resolve_via_play_endpoint(self, credentials: Credentials, channel_id: str) -> str | None:
         """Resolve stream URL using play/live.php endpoint."""
-        # Get token first
+        # Get token
         token = self._token
 
         if not token:
+            logger_service.warning("No token available for play endpoint")
             return None
 
         # Build play.php URL
         play_url = self._get_play_endpoint()
 
+        # Build URL exactly like IPTV-MAC-STALKER-PLAYER-BY-MY-1 does
+        # Format: http://host/play/live.php?mac=XX&stream=XX&extension=ts&play_token=XX
         params = {
             "mac": credentials.mac_address,
             "stream": channel_id,
@@ -487,18 +490,9 @@ class StalkerService(PortalService):
             "play_token": token,
         }
 
-        # Construct full URL with parameters
         full_url = f"{play_url}?{urlencode(params)}"
+        logger_service.info(f"play_endpoint URL: {full_url}")
 
-        # Verify the URL is accessible
-        try:
-            response = self._session.head(full_url, timeout=5, allow_redirects=True)
-            if response.status_code < 400:
-                return full_url
-        except requests.RequestException:
-            pass
-
-        # Return the URL even if HEAD fails (might still work)
         return full_url
 
     def _extract_from_cmd(self, cmd: str, credentials: Credentials) -> str | None:
@@ -506,22 +500,28 @@ class StalkerService(PortalService):
         if not cmd:
             return None
 
+        logger_service.info(f"Extracting from cmd: {cmd}")
+
         # Remove ffmpeg prefix
-        cmd = re.sub(r"(?i)^ffmpeg\\s*", "", cmd).strip()
-        cmd = cmd.strip("\"'")
+        cmd_clean = re.sub(r"(?i)^ffmpeg\s*", "", cmd).strip()
+        cmd_clean = cmd_clean.strip("\"'")
 
         # Check if it's already a valid URL
-        if re.match(r"^https?://", cmd, re.IGNORECASE):
-            return cmd
+        if re.match(r"^https?://", cmd_clean, re.IGNORECASE):
+            logger_service.info(f"cmd is direct URL: {cmd_clean}")
+            return cmd_clean
 
         # Extract URL from the command
-        match = re.search(r"(https?://[^\\s\"']+)", cmd, re.IGNORECASE)
+        match = re.search(r"(https?://[^\s\"']+)", cmd_clean, re.IGNORECASE)
         if match:
-            return match.group(1)
+            extracted = match.group(1)
+            logger_service.info(f"cmd extracted URL: {extracted}")
+            return extracted
 
         # If it's just a channel ID, try to construct URL
-        if cmd.isdigit():
-            return self._resolve_via_play_endpoint(credentials, cmd)
+        if cmd_clean.isdigit():
+            logger_service.info(f"cmd is channel ID: {cmd_clean}")
+            return self._resolve_via_play_endpoint(credentials, cmd_clean)
 
         return None
 
@@ -531,25 +531,35 @@ class StalkerService(PortalService):
             return ""
 
         stream_url = raw_value.strip()
+        logger_service.info(f"clean_stream_url raw input: {stream_url}")
 
         # Remove ffmpeg prefix
-        stream_url = re.sub(r"(?i)^ffmpeg\\s*", "", stream_url).strip()
+        stream_url = re.sub(r"(?i)^ffmpeg\s*", "", stream_url).strip()
         stream_url = stream_url.strip("\"'")
 
+        logger_service.info(f"clean_stream_url after prefix strip: {stream_url}")
+
         # Extract URL if embedded in command
-        match = re.search(r"(https?://[^\\s\"']+)", stream_url, re.IGNORECASE)
+        match = re.search(r"(https?://[^\s\"']+)", stream_url, re.IGNORECASE)
         if match:
-            return match.group(1)
+            extracted = match.group(1)
+            logger_service.info(f"clean_stream_url extracted: {extracted}")
+            return extracted
 
         # Handle relative paths
         if stream_url.startswith("/"):
             base = credentials.base_url.rstrip("/")
-            return f"{base}{stream_url}"
+            result = f"{base}{stream_url}"
+            logger_service.info(f"clean_stream_url relative path: {result}")
+            return result
 
         # Handle protocol-relative URLs
         if stream_url.startswith("//"):
-            return f"https:{stream_url}"
+            result = f"https:{stream_url}"
+            logger_service.info(f"clean_stream_url protocol relative: {result}")
+            return result
 
+        logger_service.info(f"clean_stream_url returning as-is: {stream_url}")
         return stream_url
 
     def get_connection_info(self, credentials: Credentials) -> dict[str, str]:
