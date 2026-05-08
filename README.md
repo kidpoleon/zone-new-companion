@@ -1,4 +1,4 @@
-# zone-new-companion v1.1.0
+# zone-new-companion v1.1.1
 
 Unified desktop IPTV companion app that merges Xtream and Stalker workflows into a single cross-platform PyQt6 application.
 
@@ -21,6 +21,17 @@ Unified desktop IPTV companion app that merges Xtream and Stalker workflows into
 - Confirmation dialog for reset actions.
 - Series hierarchy navigation (double-click series/season to drill down).
 - Right-click on item list to go back one level.
+
+## v1.1.1 OCR & Advanced Connection Improvements
+
+- **OCR Service Integration**: Complete OCR service based on IPTV-CHECK project for video stream validation
+- **FFmpeg Frame Extraction**: Automatic frame capture from video streams for content analysis
+- **Tesseract OCR Engine**: Multi-language text recognition with error detection patterns
+- **Advanced DNS Resolution**: Multiple DNS server fallback (Google, Cloudflare, OpenDNS, Quad9)
+- **Enhanced Connectivity Testing**: Multiple endpoint testing for better server compatibility
+- **Connection Diagnostics**: Comprehensive connection testing with detailed diagnostics
+- **Complete Logs Removal**: Fully removed logs functionality from title bar and application
+- **Performance Optimization**: Improved connection success rates through advanced strategies
 
 ## v1.1.0 SSL & Connection Improvements
 

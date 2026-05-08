@@ -68,9 +68,7 @@ def run() -> None:
     window.verify_cancel_requested.connect(
         lambda: controller.cancel_verification(on_success=window.notify, on_error=on_error),
     )
-    window.logs_clear_requested.connect(lambda: controller.clear_logs())
-    # Log viewer connection removed for performance
-    window.logs_save_requested.connect(lambda: controller.save_logs())
+    # All logs connections removed for performance
     window.now_playing_requested.connect(lambda tab_name, item: controller.request_now_playing(tab_name, item))
     window.reset_requested.connect(lambda: _reset(window, controller))
 

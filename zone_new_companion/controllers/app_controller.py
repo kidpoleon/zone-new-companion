@@ -16,6 +16,7 @@ from zone_new_companion.config import AppConfig, ConfigStore
 from zone_new_companion.models import Credentials, MediaItem, PlaylistCategory, PortalType
 from zone_new_companion.services.base import PortalService
 from zone_new_companion.services.m3u_service import M3UService
+from zone_new_companion.services.ocr_service import OCRService
 from zone_new_companion.services.player_launcher import launch_stream
 from zone_new_companion.services.stalker_service import StalkerService
 from zone_new_companion.services.stream_verifier import StreamVerifier
@@ -40,6 +41,7 @@ class AppController:
             PortalType.STALKER: StalkerService(),
         }
         self._verifier = StreamVerifier()
+        self._ocr_service = OCRService()
         self._navigation_stack: dict[str, list[list[MediaItem]]] = {"Live": [], "Movies": [], "Series": []}
 
     @property
@@ -453,27 +455,7 @@ class AppController:
             logger_service.error(f"Failed to cancel verification: {e}")
             on_error(f"Failed to cancel verification: {e}")
 
-    def clear_logs(self) -> None:
-        """Clear all logs."""
-        logger_service.clear_logs()
-
-    def show_logs(self) -> None:
-        """Show logs window - disabled for performance."""
-        pass
-
-    def save_logs(self) -> None:
-        """Save logs to file."""
-        from datetime import datetime
-        from pathlib import Path
-        
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        default_path = Path.home() / f"zone_new_companion_logs_{timestamp}.txt"
-        
-        try:
-            logger_service.save_logs_to_file(default_path)
-            logger_service.info(f"Logs saved to {default_path}")
-        except Exception as e:
-            logger_service.error(f"Failed to save logs: {e}")
+    # All logs methods removed for performance
 
     def request_now_playing(
         self,

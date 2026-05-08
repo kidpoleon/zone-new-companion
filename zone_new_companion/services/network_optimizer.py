@@ -347,29 +347,138 @@ class OptimizedSession:
         raise requests.RequestException(f"All protocol attempts failed for {url}")
 
 def fast_dns_check(base_url: str) -> bool:
-    """Fast DNS resolution check."""
+    """Fast DNS resolution check with multiple DNS servers."""
+    import dns.resolver
+    
     try:
         parsed = urlparse(base_url)
-        socket.gethostbyname(parsed.netloc)
+        domain = parsed.netloc.split(':')[0]  # Remove port if present
+        
+        # Try multiple DNS servers for better reliability
+        dns_servers = ['8.8.8.8', '1.1.1.1', '208.67.222.222', '9.9.9.9']
+        
+        for dns_server in dns_servers:
+            try:
+                resolver = dns.resolver.Resolver()
+                resolver.nameservers = [dns_server]
+                resolver.timeout = 2
+                resolver.lifetime = 2
+                result = resolver.resolve(domain, 'A')
+                return True
+            except:
+                continue
+                
+        # Fallback to system DNS
+        socket.gethostbyname(domain)
         return True
-    except (socket.gaierror, UnicodeError):
-        return False
+        
+    except (socket.gaierror, UnicodeError, ImportError):
+        # Fallback to basic DNS check
+        try:
+            parsed = urlparse(base_url)
+            socket.gethostbyname(parsed.netloc)
+            return True
+        except (socket.gaierror, UnicodeError):
+            return False
 
 def fast_connectivity_check(base_url: str, timeout: float = 5.0) -> bool:
-    """Fast connectivity check using HEAD request."""
+    """Enhanced connectivity check with multiple endpoints."""
     try:
         parsed = urlparse(base_url)
-        test_url = f"{parsed.scheme}://{parsed.netloc}/"
         
-        response = requests.head(
-            test_url,
-            timeout=timeout,
-            allow_redirects=True,
-            headers={'User-Agent': 'zone-new-companion/1.0.9'}
-        )
-        return response.status_code < 500
+        # Try multiple test endpoints for better reliability
+        test_endpoints = [
+            f"{parsed.scheme}://{parsed.netloc}/",
+            f"{parsed.scheme}://{parsed.netloc}/player_api.php",
+            f"{parsed.scheme}://{parsed.netloc}/panel_api.php",
+            f"{parsed.scheme}://{parsed.netloc}/xtream",
+            f"{parsed.scheme}://{parsed.netloc}/portal.php"
+        ]
+        
+        for endpoint in test_endpoints:
+            try:
+                response = requests.head(
+                    endpoint,
+                    timeout=timeout,
+                    headers={
+                        'User-Agent': 'Mozilla/5.0 (compatible; IPTV-Checker)',
+                        'Accept': 'application/json, text/plain, */*',
+                        'Connection': 'keep-alive'
+                    },
+                    allow_redirects=True
+                )
+                if response.status_code < 500:
+                    return True
+            except:
+                continue
+                
+        return False
+        
     except Exception:
         return False
+
+def advanced_connection_test(base_url: str, timeout: float = 10.0) -> dict:
+    """Advanced connection test with detailed diagnostics."""
+    results = {
+        'dns_ok': False,
+        'http_ok': False,
+        'https_ok': False,
+        'port_open': False,
+        'response_time': None,
+        'working_protocol': None,
+        'working_endpoint': None
+    }
+    
+    try:
+        parsed = urlparse(base_url)
+        host = parsed.netloc.split(':')[0]
+        port = parsed.port or (443 if parsed.scheme == 'https' else 80)
+        
+        start_time = time.time()
+        
+        # DNS check
+        results['dns_ok'] = fast_dns_check(base_url)
+        
+        # Port check
+        try:
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.settimeout(3)
+            result = sock.connect_ex((host, port))
+            results['port_open'] = result == 0
+            sock.close()
+        except:
+            results['port_open'] = False
+        
+        # HTTP/HTTPS tests
+        if results['dns_ok'] and results['port_open']:
+            for protocol in ['http', 'https']:
+                try:
+                    test_url = f"{protocol}://{parsed.netloc}/player_api.php"
+                    response = requests.head(
+                        test_url,
+                        timeout=timeout,
+                        headers={'User-Agent': 'Mozilla/5.0 (compatible; IPTV-Checker)'}
+                    )
+                    
+                    if response.status_code < 500:
+                        if protocol == 'http':
+                            results['http_ok'] = True
+                        else:
+                            results['https_ok'] = True
+                        
+                        if results['working_protocol'] is None:
+                            results['working_protocol'] = protocol
+                            results['working_endpoint'] = test_url
+                            results['response_time'] = time.time() - start_time
+                            
+                except:
+                    continue
+        
+        return results
+        
+    except Exception as e:
+        results['error'] = str(e)
+        return results
 
 def credential_health_score(base_url: str, response_time: float, success: bool) -> float:
     """Calculate health score for a credential (0.0 to 1.0)."""

@@ -41,9 +41,7 @@ class MainWindow(QMainWindow):
     verify_all_channels_requested = pyqtSignal(str)
     verify_tab_requested = pyqtSignal(str)
     verify_cancel_requested = pyqtSignal()
-    logs_clear_requested = pyqtSignal()
-    # logs_show_requested signal removed for performance
-    logs_save_requested = pyqtSignal()
+    # All logs signals removed for performance
     now_playing_requested = pyqtSignal(str, object)
     back_requested = pyqtSignal(str)
     reset_requested = pyqtSignal()
@@ -81,12 +79,10 @@ class MainWindow(QMainWindow):
             )
         self._help_menu = QMenu("Help", self)
         self._history_menu = QMenu("History", self)
-        self._logs_menu = QMenu("Logs", self)
         self._verify_menu = QMenu("Verify", self)
         self.menuBar().addMenu(self._help_menu)
         self.menuBar().addMenu(self._verify_menu)
         self.menuBar().addMenu(self._history_menu)
-        self.menuBar().addMenu(self._logs_menu)
 
         self._help_info_action = self._help_menu.addAction("Info")
         self._help_exit_action = self._help_menu.addAction("Exit")
@@ -107,16 +103,7 @@ class MainWindow(QMainWindow):
         self._verify_series_action = self._verify_menu.addAction("Verify Series")
         self._verify_series_action.triggered.connect(lambda: self._emit_verify_tab("Series"))
 
-        # Logs menu actions
-        self._logs_clear_action = self._logs_menu.addAction("Clear Logs")
-        self._logs_clear_action.triggered.connect(self._emit_clear_logs)
-        
-        self._logs_menu.addSeparator()
-        
-        # Log viewer removed for performance
-        
-        self._logs_save_action = self._logs_menu.addAction("Save Logs to File")
-        self._logs_save_action.triggered.connect(self._emit_save_logs)
+        # Logs functionality completely removed
 
         self._toast = ToastLabel(self)
         central = QWidget()
@@ -380,12 +367,4 @@ class MainWindow(QMainWindow):
         """Emit cancel verification request."""
         self.verify_cancel_requested.emit()
 
-    def _emit_clear_logs(self) -> None:
-        """Emit clear logs request."""
-        self.logs_clear_requested.emit()
-
-    # Show logs method removed for performance
-
-    def _emit_save_logs(self) -> None:
-        """Emit save logs request."""
-        self.logs_save_requested.emit()
+    # All logs emit methods removed for performance
