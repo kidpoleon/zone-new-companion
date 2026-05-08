@@ -113,7 +113,7 @@ class XtreamService(PortalService):
         grouped: dict[str, list[PlaylistCategory]] = {"Live": [], "Movies": [], "Series": []}
         for tab, action in mappings.items():
             rows = self._coerce_row_list(self._request_api(credentials, action=action))
-            grouped[tab] = [
+            categories = [
                 PlaylistCategory(
                     id=str(row.get("category_id", "")),
                     name=str(row.get("category_name", "Unnamed")),
@@ -121,6 +121,8 @@ class XtreamService(PortalService):
                 )
                 for row in rows
             ]
+            # Sort categories alphabetically
+            grouped[tab] = sorted(categories, key=lambda x: x.name.lower())
         return grouped
 
     def fetch_connection_info(self, credentials: Credentials) -> dict[str, str]:
@@ -196,7 +198,8 @@ class XtreamService(PortalService):
                     stream_url=stream_url,
                 ),
             )
-        return items
+        # Sort items alphabetically (case-insensitive)
+        return sorted(items, key=lambda x: x.name.lower())
 
     def resolve_stream_url(self, credentials: Credentials, item: MediaItem) -> str:
         if item.stream_url:

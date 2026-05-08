@@ -1,4 +1,4 @@
-# zone-new-companion v1.1.2
+# zone-new-companion v1.1.3
 
 Unified desktop IPTV companion app that merges Xtream and Stalker workflows into a single cross-platform PyQt6 application.
 
@@ -21,6 +21,17 @@ Unified desktop IPTV companion app that merges Xtream and Stalker workflows into
 - Confirmation dialog for reset actions.
 - Series hierarchy navigation (double-click series/season to drill down).
 - Right-click on item list to go back one level.
+
+## v1.1.3 M3U Enhancement & UI/UX Improvements
+
+- **M3U URL Compatibility**: Fixed issues reading problematic M3U URLs including short URLs and redirects
+- **Optimized Session Integration**: M3U service now uses optimized SSL sessions for better compatibility
+- **Enhanced Redirect Handling**: Better support for short URLs (s.id, bit.ly, tinyurl.com) with proper user agents
+- **Alphabetical Sorting**: All categories and items now sort alphabetically across all services (M3U, Xtream, Stalker)
+- **Improved UI/UX**: Enhanced visual feedback with alternating row colors and better tooltips
+- **Table Sorting**: Enabled table sorting and improved visual styling with modern dark theme
+- **Better Error Handling**: More robust M3U parsing with enhanced logging and error recovery
+- **User Experience**: Improved tooltips, visual indicators, and overall application polish
 
 ## v1.1.2 Verification Accuracy & Progress Reporting
 

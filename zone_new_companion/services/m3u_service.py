@@ -11,13 +11,15 @@ from requests import RequestException
 from zone_new_companion.models import Credentials, MediaItem, PlaylistCategory
 from zone_new_companion.services.base import PortalService
 from zone_new_companion.services.network import DEFAULT_TIMEOUT, create_session
+from zone_new_companion.services.network_optimizer import OptimizedSession
+from zone_new_companion.services.logger_service import logger_service
 
 
 class M3UService(PortalService):
     """Service for M3U playlist parsing and streaming."""
 
     def __init__(self) -> None:
-        self._session = create_session()
+        self._session = OptimizedSession()
 
     def fetch_categories(self, credentials: Credentials) -> dict[str, list[PlaylistCategory]]:
         """Extract categories from M3U playlist."""
@@ -54,43 +56,84 @@ class M3UService(PortalService):
         return {"Type": "M3U Playlist", "URL": credentials.base_url}
 
     def _fetch_playlist_content(self, url: str) -> str:
-        """Fetch M3U playlist content."""
+        """Fetch M3U playlist content with enhanced error handling."""
         if not url:
             raise ValueError("URL cannot be empty")
+        
+        logger_service.info(f"Fetching M3U playlist from: {url}")
         
         # Handle XTREAM get.php URLs
         if "get.php" in url:
             # Extract credentials from get.php URL and use XTREAM-like parsing
             return self._fetch_from_get_php(url)
         
+        # Handle short URLs and redirects
+        if "s.id/" in url or "bit.ly/" in url or "tinyurl.com/" in url:
+            return self._fetch_with_redirect_handling(url)
+        
         # Standard M3U URL
         try:
-            response = self._session.get(url, timeout=DEFAULT_TIMEOUT)
+            response = self._session.session.get(url, timeout=DEFAULT_TIMEOUT)
             response.raise_for_status()
             
             # Validate content looks like M3U
             content = response.text
             if not content.strip():
                 raise ValueError("Empty playlist content")
-            if not any(line.strip().startswith('#EXTM3U') for line in content.split('\n')[:10]):
-                # Not a strict requirement, but warn if no M3U header found
-                pass  # Some playlists might not have the header
             
+            # Check if it's a valid M3U or try to parse anyway
+            if not any(line.strip().startswith('#EXTM3U') for line in content.split('\n')[:10]):
+                logger_service.warning("No M3U header found, attempting to parse anyway")
+            
+            logger_service.info(f"Successfully fetched M3U content: {len(content)} characters")
             return content
+            
         except requests.RequestException as e:
+            logger_service.error(f"Failed to fetch playlist: {e}")
             raise RuntimeError(f"Failed to fetch playlist: {e}")
+
+    def _fetch_with_redirect_handling(self, url: str) -> str:
+        """Handle short URLs and redirects with proper user agents."""
+        try:
+            # Use a more permissive session for redirects
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+                'Accept': 'text/plain, application/x-mpegurl, application/vnd.apple.mpegurl, */*',
+                'Accept-Language': 'en-US,en;q=0.9',
+                'Accept-Encoding': 'gzip, deflate',
+                'Connection': 'keep-alive'
+            }
+            
+            response = self._session.session.get(
+                url, 
+                timeout=15,  # Longer timeout for redirects
+                headers=headers,
+                allow_redirects=True
+            )
+            response.raise_for_status()
+            
+            content = response.text
+            if not content.strip():
+                raise ValueError("Empty playlist content after redirect")
+            
+            logger_service.info(f"Successfully fetched M3U content via redirect: {len(content)} characters")
+            return content
+            
+        except requests.RequestException as e:
+            logger_service.error(f"Failed to fetch playlist via redirect: {e}")
+            raise RuntimeError(f"Failed to fetch playlist via redirect: {e}")
 
     def _fetch_from_get_php(self, url: str) -> str:
         """Handle XTREAM get.php URLs for M3U format."""
         # This is a simplified implementation - in a real scenario, you might need
         # to parse the get.php URL and make appropriate API calls
         # For now, we'll try to fetch it as a direct M3U URL
-        response = self._session.get(url, timeout=DEFAULT_TIMEOUT)
+        response = self._session.session.get(url, timeout=DEFAULT_TIMEOUT)
         response.raise_for_status()
         return response.text
 
     def _parse_categories(self, content: str) -> list[PlaylistCategory]:
-        """Parse categories from M3U content."""
+        """Parse categories from M3U content and sort alphabetically."""
         categories = set()
         lines = content.split('\n')
         
@@ -102,18 +145,19 @@ class M3UService(PortalService):
                 if match:
                     categories.add(match.group(1))
         
-        # Convert to PlaylistCategory objects
+        # Sort categories alphabetically and convert to PlaylistCategory objects
+        sorted_categories = sorted(categories, key=lambda x: x.lower())
         return [
             PlaylistCategory(
                 id=str(i),
                 name=category if category else "Uncategorized",
                 media_kind="live"
             )
-            for i, category in enumerate(sorted(categories))
+            for i, category in enumerate(sorted_categories)
         ]
 
     def _parse_category_items(self, content: str, category_id: str) -> list[MediaItem]:
-        """Parse items for a specific category from M3U content."""
+        """Parse items for a specific category from M3U content and sort alphabetically."""
         items = []
         lines = content.split('\n')
         i = 0
@@ -150,4 +194,6 @@ class M3UService(PortalService):
                             ))
             i += 1
         
-        return items
+        # Sort items alphabetically (case-insensitive)
+        sorted_items = sorted(items, key=lambda x: x.name.lower())
+        return sorted_items

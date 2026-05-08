@@ -127,9 +127,12 @@ class MainWindow(QMainWindow):
             tab = QWidget()
             tab_layout = QHBoxLayout(tab)
             categories = QListWidget()
-            categories.setToolTip("Category list")
+            categories.setToolTip("Categories - Click to load channels/movies/series")
+            categories.setAlternatingRowColors(True)
             table = QTableWidget()
-            table.setToolTip("Playlist items")
+            table.setToolTip("Playlist items - Double-click to play, right-click for options")
+            table.setAlternatingRowColors(True)
+            table.setSortingEnabled(True)
             table.setColumnCount(5)
             table.setHorizontalHeaderLabels(["Name", "Now Playing", "Status", "Verify", "Play"])
             table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
@@ -140,6 +143,21 @@ class MainWindow(QMainWindow):
             table.verticalHeader().setVisible(False)
             table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
             table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+            table.setShowGrid(True)
+            table.setStyleSheet("""
+                QTableWidget {
+                    gridline-color: #444444;
+                    background-color: #2b2b2b;
+                    alternate-background-color: #323232;
+                }
+                QTableWidget::item {
+                    padding: 5px;
+                    border-bottom: 1px solid #444444;
+                }
+                QTableWidget::item:selected {
+                    background-color: #0078d4;
+                }
+            """)
             table.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
             table.cellClicked.connect(lambda row, _col, name=tab_name: self._emit_now_playing(name, row))
             table.cellDoubleClicked.connect(lambda row, _col, name=tab_name: self._emit_play_from_row(name, row))

@@ -192,7 +192,7 @@ class StalkerService(PortalService):
             )
             response.raise_for_status()
             rows = response.json().get("js", [])
-            grouped[tab] = [
+            categories = [
                 PlaylistCategory(
                     id=str(row.get("id", "")),
                     name=str(row.get("title", "Unnamed")),
@@ -200,6 +200,8 @@ class StalkerService(PortalService):
                 )
                 for row in rows
             ]
+            # Sort categories alphabetically
+            grouped[tab] = sorted(categories, key=lambda x: x.name.lower())
         return grouped
 
     def fetch_items(self, credentials: Credentials, category: PlaylistCategory) -> list[MediaItem]:
@@ -220,7 +222,7 @@ class StalkerService(PortalService):
         )
         response.raise_for_status()
         rows = response.json().get("js", {}).get("data", [])
-        return [
+        items = [
             MediaItem(
                 id=str(row.get("id", "")),
                 name=str(row.get("name", "Unnamed")),
@@ -230,6 +232,8 @@ class StalkerService(PortalService):
             )
             for row in rows
         ]
+        # Sort items alphabetically (case-insensitive)
+        return sorted(items, key=lambda x: x.name.lower())
 
     def resolve_stream_url(self, credentials: Credentials, item: MediaItem) -> str:
         logger_service.info(f"Resolving stream URL for {item.name} (type: {item.item_type})")
