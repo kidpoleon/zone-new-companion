@@ -4,7 +4,7 @@
 
 # Zone New Companion
 
-[![Version](https://img.shields.io/badge/version-1.1.11-blue.svg)](https://github.com/kidpoleon/zone-new-companion/releases)
+[![Version](https://img.shields.io/badge/version-1.2.0-blue.svg)](https://github.com/kidpoleon/zone-new-companion/releases)
 [![Python](https://img.shields.io/badge/python-3.8+-3776ab.svg)](https://www.python.org/)
 [![PyQt6](https://img.shields.io/badge/PyQt6-6.7+-41cd52.svg)](https://www.riverbankcomputing.com/software/pyqt/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
@@ -128,6 +128,8 @@ MIT License — see [LICENSE](LICENSE) file.
 ## 🙏 Credits
 
 - Original inspiration from [Cyogenus](https://github.com/Cyogenus) IPTV projects
+- [IPTV-MAC-STALKER-PLAYER-BY-MY-1](https://github.com/peterpt/IPTV-CHECK) - Stalker implementation reference
+- [stalkerhek](https://github.com/CrazeeGhost/stalkerhek/) - Go implementation reference
 - Built with PyQt6, VLC, FFmpeg, and Tesseract
 
 ---
