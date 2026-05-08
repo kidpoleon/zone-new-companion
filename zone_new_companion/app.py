@@ -3,10 +3,27 @@
 from __future__ import annotations
 
 import sys
+import os
 from pathlib import Path
 from typing import Callable
 
+# Set Windows AppUserModelID BEFORE any UI initialization (must be before QApplication)
+if sys.platform == 'win32':
+    try:
+        import ctypes
+        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID('kidpoleon.zone-new-companion.1.1.7')
+    except Exception:
+        pass
+
+# Determine base directory for resources (PyInstaller or normal)
+if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
+    BASE_DIR = sys._MEIPASS
+else:
+    BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
 from PyQt6.QtWidgets import QApplication, QMessageBox
+from PyQt6.QtGui import QIcon
+from PyQt6.QtCore import Qt
 import qdarkstyle
 
 from zone_new_companion.config import ConfigStore
@@ -28,10 +45,24 @@ def run() -> None:
     controller = AppController(state_store, config_store)
 
     qt_app = QApplication(sys.argv)
+    qt_app.setApplicationName("zone-new-companion")
+    qt_app.setApplicationVersion(__version__)
+    
+    # Set application icon (shows in taskbar on Windows)
+    icon_path = os.path.join(BASE_DIR, "zone_new_companion", "icon", "icon.ico")
+    if os.path.exists(icon_path):
+        app_icon = QIcon(icon_path)
+        qt_app.setWindowIcon(app_icon)
+    
     if controller.config.ui.dark_theme:
         qt_app.setStyleSheet(qdarkstyle.load_stylesheet(qt_api="pyqt6"))
 
     window = MainWindow()
+    
+    # Set window icon explicitly (inherited from app, but setting again ensures it)
+    if os.path.exists(icon_path):
+        window.setWindowIcon(QIcon(icon_path))
+    
     window.resize(controller.config.ui.width, controller.config.ui.height)
     _refresh_history_menu(window, controller)
     window.set_help_info(lambda: _show_info(window))
@@ -68,7 +99,6 @@ def run() -> None:
     window.verify_cancel_requested.connect(
         lambda: controller.cancel_verification(on_success=window.notify, on_error=on_error),
     )
-    # All logs connections removed for performance
     window.now_playing_requested.connect(lambda tab_name, item: controller.request_now_playing(tab_name, item))
     window.reset_requested.connect(lambda: _reset(window, controller))
 
@@ -76,7 +106,10 @@ def run() -> None:
         window.populate_form(controller.config.last_input)
 
     qt_app.aboutToQuit.connect(lambda: controller.save_ui_state(window.width(), window.height()))
-    window.showFullScreen()
+    
+    # Show as normal window with controls (not fullscreen) - ensures minimize/maximize/close buttons
+    window.show()
+    
     sys.exit(qt_app.exec())
 
 

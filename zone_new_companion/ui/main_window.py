@@ -51,32 +51,6 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.setWindowTitle(f"zone-new-companion v{__version__}")
         self.setMinimumSize(1000, 650)
-        
-        # Set window flags based on OS
-        if sys.platform == "win32":
-            # Windows: Add minimize/maximize buttons, keep frame
-            self.setWindowFlags(
-                Qt.WindowType.Window |
-                Qt.WindowType.WindowMinimizeButtonHint |
-                Qt.WindowType.WindowMaximizeButtonHint |
-                Qt.WindowType.WindowCloseButtonHint
-            )
-        elif sys.platform == "darwin":
-            # macOS: Native window controls
-            self.setWindowFlags(
-                Qt.WindowType.Window |
-                Qt.WindowType.WindowMinimizeButtonHint |
-                Qt.WindowType.WindowMaximizeButtonHint |
-                Qt.WindowType.WindowCloseButtonHint
-            )
-        else:
-            # Linux: Standard window controls
-            self.setWindowFlags(
-                Qt.WindowType.Window |
-                Qt.WindowType.WindowMinimizeButtonHint |
-                Qt.WindowType.WindowMaximizeButtonHint |
-                Qt.WindowType.WindowCloseButtonHint
-            )
         self._help_menu = QMenu("Help", self)
         self._history_menu = QMenu("History", self)
         self._verify_menu = QMenu("Verify", self)

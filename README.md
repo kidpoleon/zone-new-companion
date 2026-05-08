@@ -4,7 +4,7 @@
 
 # Zone New Companion
 
-[![Version](https://img.shields.io/badge/version-1.1.6-blue.svg)](https://github.com/kidpoleon/zone-new-companion/releases)
+[![Version](https://img.shields.io/badge/version-1.1.7-blue.svg)](https://github.com/kidpoleon/zone-new-companion/releases)
 [![Python](https://img.shields.io/badge/python-3.8+-3776ab.svg)](https://www.python.org/)
 [![PyQt6](https://img.shields.io/badge/PyQt6-6.7+-41cd52.svg)](https://www.riverbankcomputing.com/software/pyqt/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
