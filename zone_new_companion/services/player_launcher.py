@@ -16,16 +16,39 @@ def candidate_vlc_paths() -> list[str]:
     """Return ordered VLC paths per platform."""
     system = platform.system().lower()
     if system == "windows":
-        return [
+        paths = [
             r"C:\Program Files\VideoLAN\VLC\vlc.exe",
             r"C:\Program Files (x86)\VideoLAN\VLC\vlc.exe",
         ]
+        # Microsoft Store VLC path
+        local_appdata = os.environ.get("LOCALAPPDATA", "")
+        if local_appdata:
+            paths.append(
+                os.path.join(
+                    local_appdata,
+                    "Microsoft",
+                    "WindowsApps",
+                    "VideoLAN.VLC_paz9r1z9zr3z0",
+                    "vlc.exe"
+                )
+            )
+            # Generic Microsoft Store path
+            paths.append(
+                os.path.join(local_appdata, "Microsoft", "WindowsApps", "vlc.exe")
+            )
+        return paths
     if system == "darwin":
-        return ["/Applications/VLC.app/Contents/MacOS/VLC"]
+        return [
+            "/Applications/VLC.app/Contents/MacOS/VLC",
+            "/opt/homebrew/bin/vlc",
+            "/usr/local/bin/vlc",
+        ]
     return [
         "/usr/bin/vlc",
+        "/usr/local/bin/vlc",
         "/snap/bin/vlc",
         "/var/lib/flatpak/exports/bin/org.videolan.VLC",
+        os.path.expanduser("~/.local/bin/vlc"),
     ]
 
 

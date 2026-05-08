@@ -1,0 +1,16 @@
+VERIFICATION
+============
+
+This package contains the official release of Zone New Companion from the GitHub repository.
+
+Source: https://github.com/kidpoleon/zone-new-companion/releases
+
+The executable (zone-new-companion.exe) is the official build from the repository.
+
+To verify:
+1. Download the release from GitHub
+2. Compare checksums with the exe in this package
+3. Checksums should match exactly
+
+The software is open source and licensed under the MIT License.
+Source code is available at: https://github.com/kidpoleon/zone-new-companion

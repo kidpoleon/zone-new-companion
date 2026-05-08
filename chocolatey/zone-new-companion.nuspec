@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2015/06/nuspec.xsd">
+  <metadata>
+    <id>zone-new-companion</id>
+    <version>1.1.11</version>
+    <packageSourceUrl>https://github.com/kidpoleon/zone-new-companion</packageSourceUrl>
+    <owners>kidpoleon</owners>
+    <title>Zone New Companion</title>
+    <authors>kidpoleon</authors>
+    <projectUrl>https://github.com/kidpoleon/zone-new-companion</projectUrl>
+    <iconUrl>https://raw.githubusercontent.com/kidpoleon/zone-new-companion/main/media/logo.png</iconUrl>
+    <copyright>2024 kidpoleon</copyright>
+    <licenseUrl>https://github.com/kidpoleon/zone-new-companion/blob/main/LICENSE</licenseUrl>
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+    <projectSourceUrl>https://github.com/kidpoleon/zone-new-companion</projectSourceUrl>
+    <docsUrl>https://github.com/kidpoleon/zone-new-companion/blob/main/README.md</docsUrl>
+    <bugTrackerUrl>https://github.com/kidpoleon/zone-new-companion/issues</bugTrackerUrl>
+    <tags>iptv xtream stalker m3u vlc streaming media player</tags>
+    <summary>Unified desktop IPTV companion app</summary>
+    <description><![CDATA[
+# Zone New Companion
+
+**Unified desktop IPTV companion app for Xtream Codes, Stalker Portal, and M3U playlists**
+
+## Features
+
+- **Multiple Portal Support**: Connect to Xtream Codes, Stalker Portal, or M3U playlists
+- **Modern UI**: Clean PyQt6 interface with dark theme support
+- **VLC Integration**: Seamless streaming through VLC media player
+- **EPG Support**: Electronic Program Guide for live TV
+- **Series Support**: Browse and play TV series with season/episode navigation
+- **History**: Quick reconnect to previous portals
+- **Verification**: Built-in stream verification tools
+
+## Requirements
+
+- VLC media player must be installed separately
+- Windows 10/11
+
+## Installation
+
+```powershell
+choco install zone-new-companion
+```
+
+## Usage
+
+1. Launch Zone New Companion from the Start Menu
+2. Enter your portal credentials (URL, MAC, username/password)
+3. Click Connect and browse channels
+4. Double-click any channel to play in VLC
+
+## Links
+
+- [GitHub Repository](https://github.com/kidpoleon/zone-new-companion)
+- [Issues](https://github.com/kidpoleon/zone-new-companion/issues)
+- [Releases](https://github.com/kidpoleon/zone-new-companion/releases)
+    ]]></description>
+    <releaseNotes>https://github.com/kidpoleon/zone-new-companion/releases</releaseNotes>
+    <dependencies>
+      <dependency id="vlc" version="3.0.0" />
+    </dependencies>
+  </metadata>
+  <files>
+    <file src="tools\**" target="tools" />
+  </files>
+</package>

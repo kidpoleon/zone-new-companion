@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=Zone New Companion
+Comment=Unified IPTV companion for Xtream, Stalker, and M3U
+Exec=zone-new-companion
+Icon=zone-new-companion
+Type=Application
+Categories=AudioVideo;Video;Network;
+Keywords=iptv;xtream;stalker;m3u;vlc;streaming;
+StartupNotify=true
+Terminal=false
