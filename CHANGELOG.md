@@ -5,6 +5,37 @@ All notable changes to zone-new-companion will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] - 2026-05-09
+
+### Fixed
+- **Stalker Stream URL**: Fixed missing stream ID parameter causing playback failures
+  - Changed from `stream=&extension=ts` to `stream=1924348&extension=ts`
+  - Reordered resolution strategies to prioritize cmd field from metadata
+  - Added validation to ensure stream= parameter is not empty before accepting URL
+
+### Added
+- **Chocolatey Package**: Created full Chocolatey distribution package for Windows
+  - Added nuspec manifest with VLC dependency
+  - Created PowerShell install/uninstall scripts
+  - Included LICENSE.txt and VERIFICATION.txt for embedded binary
+- **Snap Package**: Created Snap distribution package for Linux
+  - Added snapcraft.yaml with proper desktop integration
+  - Created desktop entry for application menu
+  - Configured strict confinement with necessary plugs
+- **Enhanced VLC Detection**: Added more VLC path locations across all platforms
+  - Windows: Microsoft Store VLC paths
+  - macOS: Homebrew paths for both Apple Silicon and Intel
+  - Linux: Additional system and user-local paths
+
+### Changed
+- **Credits**: Added acknowledgments to referenced projects
+  - [IPTV-MAC-STALKER-PLAYER-BY-MY-1](https://github.com/peterpt/IPTV-CHECK) by peterpt
+  - [stalkerhek](https://github.com/CrazeeGhost/stalkerhek/) by CrazeeGhost
+
+### Documentation
+- Added comprehensive DISTRIBUTION.md guide for package maintainers
+- Documented Chocolatey and Snap publishing procedures
+
 ## [1.1.4] - 2026-05-08
 
 ### Added
