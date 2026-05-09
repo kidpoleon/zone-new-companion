@@ -4,7 +4,7 @@
 
 # Zone New Companion
 
-[![Version](https://img.shields.io/badge/version-1.2.2-blue.svg)](https://github.com/kidpoleon/zone-new-companion/releases)
+[![Version](https://img.shields.io/badge/version-1.2.3-blue.svg)](https://github.com/kidpoleon/zone-new-companion/releases)
 [![Python](https://img.shields.io/badge/python-3.8+-3776ab.svg)](https://www.python.org/)
 [![PyQt6](https://img.shields.io/badge/PyQt6-6.7+-41cd52.svg)](https://www.riverbankcomputing.com/software/pyqt/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
@@ -47,22 +47,165 @@ Zone New Companion is a modern, cross-platform PyQt6 application that unifies IP
 ## 🚀 Installation
 
 ### Prerequisites
-- Python 3.8+
-- VLC media player (required for streaming)
 
-### System Dependencies (Required for OCR features)
+Before running Zone New Companion, ensure you have the following dependencies installed:
 
-#### Tesseract OCR
-- **Ubuntu/Debian**: `sudo apt install tesseract-ocr`
-- **Fedora**: `sudo dnf install tesseract`
-- **macOS**: `brew install tesseract`
-- **Windows**: Download from https://github.com/UB-Mannheim/tesseract/wiki
+#### Required for All Platforms
+- **Python 3.8+** — Application runtime
+- **VLC Media Player** — Required for streaming playback
 
-#### FFmpeg
-- **Ubuntu/Debian**: `sudo apt install ffmpeg`
-- **Fedora**: `sudo dnf install ffmpeg`
-- **macOS**: `brew install ffmpeg`
-- **Windows**: Download from ffmpeg.org
+#### Optional for OCR Features
+- **Tesseract OCR** — Frame text recognition
+- **FFmpeg** — Video frame extraction
+
+---
+
+### 📦 Platform-Specific Setup Guides
+
+#### 🪟 Windows
+
+**Option 1: Using Chocolatey (Recommended)**
+
+```powershell
+# Install Chocolatey first (if not installed)
+# Run PowerShell as Administrator:
+Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
+
+# Install all prerequisites
+choco install python vlc tesseract ffmpeg git -y
+```
+
+**Option 2: Using winget**
+
+```powershell
+# Install all prerequisites
+winget install Python.Python.3 VideoLAN.VLC TesseractOCR.Tesseract Gyan.FFmpeg Git.Git
+```
+
+**Option 3: Manual Installation**
+1. **Python**: Download from [python.org](https://www.python.org/downloads/)
+2. **VLC**: Download from [videolan.org](https://www.videolan.org/vlc/)
+3. **Tesseract**: Download from [UB-Mannheim/tesseract](https://github.com/UB-Mannheim/tesseract/wiki)
+4. **FFmpeg**: Download from [ffmpeg.org](https://ffmpeg.org/download.html)
+5. **Git**: Download from [git-scm.com](https://git-scm.com/download/win)
+
+**Add to PATH (if needed):**
+- VLC: `C:\Program Files\VideoLAN\VLC`
+- Tesseract: `C:\Program Files\Tesseract-OCR`
+- FFmpeg: Extract to `C:\ffmpeg\bin`
+
+---
+
+#### 🐧 Linux
+
+**Ubuntu / Debian / Linux Mint / Pop!_OS / Zorin OS**
+
+```bash
+# Update package list
+sudo apt update
+
+# Install all prerequisites
+sudo apt install -y python3 python3-pip python3-venv vlc tesseract-ocr ffmpeg git
+
+# Verify installations
+python3 --version
+vlc --version
+tesseract --version
+ffmpeg -version
+```
+
+**Fedora / RHEL / CentOS / Rocky Linux / AlmaLinux**
+
+```bash
+# Install all prerequisites
+sudo dnf install -y python3 python3-pip vlc tesseract ffmpeg git
+
+# For older RHEL/CentOS versions, enable EPEL first:
+sudo dnf install epel-release -y
+```
+
+**Arch Linux / Manjaro / EndeavourOS / Garuda**
+
+```bash
+# Install all prerequisites
+sudo pacman -S python python-pip vlc tesseract ffmpeg git --noconfirm
+```
+
+**openSUSE / SUSE Linux Enterprise**
+
+```bash
+# Install all prerequisites
+sudo zypper install -y python3 python3-pip vlc tesseract-ocr ffmpeg git
+```
+
+**Solus**
+
+```bash
+# Install all prerequisites
+sudo eopkg install -y python3 vlc tesseract ffmpeg git
+```
+
+**Void Linux**
+
+```bash
+# Install all prerequisites
+sudo xbps-install -Sy python3 vlc tesseract ffmpeg git
+```
+
+**Alpine Linux**
+
+```bash
+# Install all prerequisites
+sudo apk add --no-cache python3 py3-pip vlc tesseract-ocr ffmpeg git
+```
+
+**Snap (Universal Linux)**
+
+```bash
+# Install VLC via snap
+sudo snap install vlc
+
+# Install other prerequisites via package manager (see above for your distro)
+```
+
+**Flatpak (Universal Linux)**
+
+```bash
+# Install VLC via flatpak
+flatpak install flathub org.videolan.VLC
+```
+
+---
+
+#### 🍎 macOS
+
+**Using Homebrew (Recommended)**
+
+```bash
+# Install Homebrew first (if not installed)
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+
+# Install all prerequisites
+brew install python vlc tesseract ffmpeg git
+```
+
+**Using MacPorts**
+
+```bash
+# Install MacPorts first from macports.org
+
+# Install all prerequisites
+sudo port install python312 vlc tesseract ffmpeg git
+```
+
+**Manual Installation**
+1. **Python**: Download from [python.org](https://www.python.org/downloads/macos/)
+2. **VLC**: Download from [videolan.org](https://www.videolan.org/vlc/download-macos.html)
+3. **Tesseract**: Download installer from GitHub releases
+4. **FFmpeg**: Use Homebrew or download from ffmpeg.org
+5. **Git**: Download from [git-scm.com](https://git-scm.com/download/mac)
+
+---
 
 ### Pre-built Binaries
 

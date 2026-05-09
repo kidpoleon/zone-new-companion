@@ -11,7 +11,7 @@ from typing import Callable
 if sys.platform == 'win32':
     try:
         import ctypes
-        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID('kidpoleon.zone-new-companion.1.2.2')
+        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID('kidpoleon.zone-new-companion.1.2.3')
     except Exception:
         pass
 
