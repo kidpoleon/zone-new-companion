@@ -8,6 +8,7 @@ from urllib.parse import urlparse
 import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
+from urllib3 import Timeout
 import urllib3
 
 # Adaptive timeout configurations
