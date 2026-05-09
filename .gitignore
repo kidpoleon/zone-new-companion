@@ -43,3 +43,23 @@ config.json
 
 # Local-only files
 .gitkeep
+
+# Private/Secret files
+*.key
+*.pem
+*.crt
+.env
+.env.local
+.env.*.local
+secrets/
+credentials/
+api_keys/
+
+# Build artifacts (keep dist/ for release binaries only)
+*.nupkg
+*.nuspec
+chocolatey/*.nupkg
+chocolatey/tools/zone-new-companion.exe
+
+# Release checklist (internal use)
+RELEASE_CHECKLIST.md

@@ -212,8 +212,43 @@ sudo port install python312 vlc tesseract ffmpeg git
 Download the latest release for your platform from [GitHub Releases](https://github.com/kidpoleon/zone-new-companion/releases):
 
 - **Windows**: `zone-new-companion.exe`
-- **Linux**: `zone-new-companion.AppImage` or `.deb`/`.rpm`
+- **Linux**: `zone-new-companion-1.2.3-x86_64.AppImage`
 - **macOS**: `Zone New Companion.dmg` or `.app`
+
+#### Quick Download Commands
+
+**Windows (PowerShell):**
+```powershell
+# Download Windows executable
+Invoke-WebRequest -Uri "https://github.com/kidpoleon/zone-new-companion/releases/download/v1.2.3/zone-new-companion.exe" -OutFile "zone-new-companion.exe"
+# Run
+.\zone-new-companion.exe
+```
+
+**Linux:**
+```bash
+# Download Linux AppImage
+wget https://github.com/kidpoleon/zone-new-companion/releases/download/v1.2.3/zone-new-companion-1.2.3-x86_64.AppImage
+# Make executable
+chmod +x zone-new-companion-1.2.3-x86_64.AppImage
+# Run
+./zone-new-companion-1.2.3-x86_64.AppImage
+```
+
+**macOS:**
+```bash
+# Download macOS DMG
+curl -L -o "Zone-New-Companion-1.2.3.dmg" "https://github.com/kidpoleon/zone-new-companion/releases/download/v1.2.3/Zone-New-Companion-1.2.3.dmg"
+# Open
+open "Zone-New-Companion-1.2.3.dmg"
+```
+
+**Verify Download Integrity:**
+```bash
+# SHA256 checksums (verify after download)
+sha256sum zone-new-companion.exe
+sha256sum zone-new-companion-1.2.3-x86_64.AppImage
+```
 
 ### Build from Source
 
