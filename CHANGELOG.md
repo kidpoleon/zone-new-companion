@@ -5,6 +5,34 @@ All notable changes to zone-new-companion will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.1] - 2026-05-09
+
+### Fixed
+- **OptimizedSession Integration**: Fixed all services to properly use OptimizedSession
+  - Fixed xtream_service.py to use `self._session.get()` instead of `self._session.session.get()`
+  - Fixed m3u_service.py to use `self._session.get()` instead of `self._session.session.get()`
+  - Fixed stream_verifier.py to use `self._session.get()` instead of `self._session.session.get()`
+  - All services now benefit from protocol rotation and SSL fallback logic
+
+### Changed
+- **Build System**: Replaced manual build scripts with GitHub Actions workflow
+  - Removed build-win.py and build-unix.py
+  - Created comprehensive BUILD.md with build instructions for all platforms
+  - Created .github/workflows/build-release.yml for automated cross-platform builds
+  - Automated builds for Windows (.exe), Linux (.AppImage), and macOS (.dmg)
+
+### Removed
+- **Distribution Packages**: Removed Chocolatey and Snap packaging
+  - Removed DISTRIBUTION.md
+  - Removed chocolatey/ folder (keeping for reference but not maintained)
+  - Users should now build from source or use GitHub Releases
+
+### Documentation
+- Updated README.md to remove package manager installation instructions
+- Added comprehensive build instructions in BUILD.md
+- Updated SECURITY.md with correct email (kidpoleon@proton.me)
+- Developer name updated to "Kidpoleon" consistently across files
+
 ## [1.2.0] - 2026-05-09
 
 ### Fixed

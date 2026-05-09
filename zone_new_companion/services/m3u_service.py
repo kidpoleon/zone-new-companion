@@ -73,7 +73,7 @@ class M3UService(PortalService):
         
         # Standard M3U URL
         try:
-            response = self._session.session.get(url, timeout=DEFAULT_TIMEOUT)
+            response = self._session.get(url, timeout=DEFAULT_TIMEOUT)
             response.raise_for_status()
             
             # Validate content looks like M3U
@@ -104,7 +104,7 @@ class M3UService(PortalService):
                 'Connection': 'keep-alive'
             }
             
-            response = self._session.session.get(
+            response = self._session.get(
                 url, 
                 timeout=15,  # Longer timeout for redirects
                 headers=headers,
@@ -128,7 +128,7 @@ class M3UService(PortalService):
         # This is a simplified implementation - in a real scenario, you might need
         # to parse the get.php URL and make appropriate API calls
         # For now, we'll try to fetch it as a direct M3U URL
-        response = self._session.session.get(url, timeout=DEFAULT_TIMEOUT)
+        response = self._session.get(url, timeout=DEFAULT_TIMEOUT)
         response.raise_for_status()
         return response.text
 

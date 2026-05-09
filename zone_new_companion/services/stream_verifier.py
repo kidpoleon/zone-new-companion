@@ -145,7 +145,7 @@ class StreamVerifier:
         try:
             if ".m3u8" in stream_url:
                 return self._quick_hls_check(stream_url)
-            response = self._session.session.get(
+            response = self._session.get(
                 stream_url,
                 stream=True,
                 timeout=DEFAULT_TIMEOUT,
@@ -161,7 +161,7 @@ class StreamVerifier:
         """Fallback reachability check with more permissive settings."""
         try:
             # Try with a longer timeout and different approach
-            response = self._session.session.get(
+            response = self._session.get(
                 stream_url,
                 stream=True,
                 timeout=15,  # Longer timeout
@@ -176,7 +176,7 @@ class StreamVerifier:
 
     def _quick_hls_check(self, m3u8_url: str) -> bool:
         try:
-            playlist_resp = self._session.session.get(m3u8_url, timeout=DEFAULT_TIMEOUT)
+            playlist_resp = self._session.get(m3u8_url, timeout=DEFAULT_TIMEOUT)
             playlist_resp.raise_for_status()
             
             # Check if it's actually an M3U playlist
@@ -212,7 +212,7 @@ class StreamVerifier:
             
             # Use a shorter timeout for segment checking
             segment_timeout = min(DEFAULT_TIMEOUT, 3)
-            segment_resp = self._session.session.head(segment_url, timeout=segment_timeout)
+            segment_resp = self._session.get(segment_url, stream=True, timeout=segment_timeout)
             
             # Check if segment is accessible (HEAD request is faster)
             ok = segment_resp.status_code < 400
@@ -220,7 +220,7 @@ class StreamVerifier:
             # If HEAD fails, try GET as fallback
             if not ok:
                 try:
-                    segment_resp = self._session.session.get(
+                    segment_resp = self._session.get(
                         segment_url,
                         stream=True,
                         timeout=segment_timeout,

@@ -4,7 +4,7 @@
 
 # Zone New Companion
 
-[![Version](https://img.shields.io/badge/version-1.2.0-blue.svg)](https://github.com/kidpoleon/zone-new-companion/releases)
+[![Version](https://img.shields.io/badge/version-1.2.1-blue.svg)](https://github.com/kidpoleon/zone-new-companion/releases)
 [![Python](https://img.shields.io/badge/python-3.8+-3776ab.svg)](https://www.python.org/)
 [![PyQt6](https://img.shields.io/badge/PyQt6-6.7+-41cd52.svg)](https://www.riverbankcomputing.com/software/pyqt/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
@@ -56,29 +56,23 @@ Zone New Companion is a modern, cross-platform PyQt6 application that unifies IP
 - **Ubuntu/Debian**: `sudo apt install tesseract-ocr`
 - **Fedora**: `sudo dnf install tesseract`
 - **macOS**: `brew install tesseract`
-- **Windows**: Download from https://github.com/UB-Mannheim/tesseract/wiki or `choco install tesseract`
+- **Windows**: Download from https://github.com/UB-Mannheim/tesseract/wiki
 
 #### FFmpeg
 - **Ubuntu/Debian**: `sudo apt install ffmpeg`
 - **Fedora**: `sudo dnf install ffmpeg`
 - **macOS**: `brew install ffmpeg`
-- **Windows**: `choco install ffmpeg` or download from ffmpeg.org
+- **Windows**: Download from ffmpeg.org
 
-### Package Manager Installation (Recommended)
+### Pre-built Binaries
 
-#### Windows (Chocolatey)
-```powershell
-choco install zone-new-companion
-```
+Download the latest release for your platform from [GitHub Releases](https://github.com/kidpoleon/zone-new-companion/releases):
 
-#### Windows (Manual)
-Download `zone-new-companion.exe` from [Releases](https://github.com/kidpoleon/zone-new-companion/releases):
+- **Windows**: `zone-new-companion.exe`
+- **Linux**: `zone-new-companion.AppImage` or `.deb`/`.rpm`
+- **macOS**: `Zone New Companion.dmg` or `.app`
 
-1. Navigate to **Releases** → **Assets**
-2. Download `zone-new-companion.exe`
-3. Double-click to run — no installation required
-
-### Quick Start
+### Build from Source
 
 ```bash
 # Clone repository

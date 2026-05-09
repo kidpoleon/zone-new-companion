@@ -222,7 +222,7 @@ class XtreamService(PortalService):
                 credentials.base_url,
                 f"xmltv.php?username={credentials.username}&password={credentials.password}",
             )
-            response = self._session.session.get(epg_url, timeout=DEFAULT_TIMEOUT)
+            response = self._session.get(epg_url, timeout=DEFAULT_TIMEOUT)
             response.raise_for_status()
             self._xmltv_cache = response.content
         if self._xmltv_cache is None:
