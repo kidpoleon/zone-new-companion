@@ -5,6 +5,18 @@ All notable changes to zone-new-companion will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.2] - 2026-05-09
+
+### Fixed
+- **GitHub Actions Workflow**: Fixed release automation
+  - Added proper permissions for release creation
+  - Replaced deprecated actions with modern alternatives
+  - Workflow now builds all platforms in parallel
+  - Fixed 'Resource not accessible by integration' error
+
+### Changed
+- **Version bump**: Incremented to v1.2.2 to trigger new release workflow
+
 ## [1.2.1] - 2026-05-09
 
 ### Fixed
