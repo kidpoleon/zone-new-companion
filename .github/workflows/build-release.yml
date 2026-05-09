@@ -11,61 +11,12 @@ on:
         required: true
         default: '1.2.1'
 
+permissions:
+  contents: write
+
 jobs:
-  create-release:
-    name: Create Release
-    runs-on: ubuntu-latest
-    outputs:
-      upload_url: ${{ steps.create_release.outputs.upload_url }}
-      release_id: ${{ steps.create_release.outputs.id }}
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Get version from tag
-        id: get_version
-        run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "VERSION=${{ github.event.inputs.version }}" >> $GITHUB_ENV
-          else
-            VERSION=${GITHUB_REF#refs/tags/v}
-            echo "VERSION=$VERSION" >> $GITHUB_ENV
-          fi
-          echo "Building version: $VERSION"
-
-      - name: Create Release
-        id: create_release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: ${{ github.ref }}
-          release_name: v${{ env.VERSION }}
-          body: |
-            ## Zone New Companion v${{ env.VERSION }}
-
-            ### Downloads
-            - **Windows**: zone-new-companion.exe
-            - **Linux**: zone-new-companion.AppImage
-            - **macOS**: Zone-New-Companion.dmg
-
-            ### Installation
-            1. Download the appropriate file for your platform
-            2. Windows: Double-click the .exe file
-            3. Linux: Make the AppImage executable with `chmod +x` then run
-            4. macOS: Open the .dmg and drag to Applications
-
-            ### Requirements
-            - VLC media player must be installed separately
-            - For OCR features: Tesseract OCR and FFmpeg (see BUILD.md)
-
-            See [BUILD.md](https://github.com/kidpoleon/zone-new-companion/blob/main/BUILD.md) for detailed build instructions.
-          draft: false
-          prerelease: false
-
   build-windows:
     name: Build Windows Executable
-    needs: create-release
     runs-on: windows-latest
     steps:
       - name: Checkout code
@@ -99,19 +50,14 @@ jobs:
             --exclude-module scipy `
             main.py
 
-      - name: Upload to Release
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Upload Windows artifact
+        uses: actions/upload-artifact@v4
         with:
-          upload_url: ${{ needs.create-release.outputs.upload_url }}
-          asset_path: ./dist/zone-new-companion.exe
-          asset_name: zone-new-companion.exe
-          asset_content_type: application/vnd.microsoft.portable-executable
+          name: windows-exe
+          path: ./dist/zone-new-companion.exe
 
   build-linux:
     name: Build Linux AppImage
-    needs: create-release
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -177,19 +123,14 @@ jobs:
           # Build AppImage
           ./appimagetool-x86_64.AppImage AppDir zone-new-companion.AppImage
 
-      - name: Upload to Release
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Upload Linux artifact
+        uses: actions/upload-artifact@v4
         with:
-          upload_url: ${{ needs.create-release.outputs.upload_url }}
-          asset_path: ./zone-new-companion.AppImage
-          asset_name: zone-new-companion.AppImage
-          asset_content_type: application/x-executable
+          name: linux-appimage
+          path: ./zone-new-companion.AppImage
 
   build-macos:
     name: Build macOS DMG
-    needs: create-release
     runs-on: macos-latest
     steps:
       - name: Checkout code
@@ -255,12 +196,59 @@ jobs:
             "Zone-New-Companion.dmg" \
             "dist/Zone New Companion.app"
 
-      - name: Upload to Release
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Upload macOS artifact
+        uses: actions/upload-artifact@v4
         with:
-          upload_url: ${{ needs.create-release.outputs.upload_url }}
-          asset_path: ./Zone-New-Companion.dmg
-          asset_name: Zone-New-Companion.dmg
-          asset_content_type: application/x-apple-diskimage
+          name: macos-dmg
+          path: ./Zone-New-Companion.dmg
+
+  create-release:
+    name: Create Release
+    needs: [build-windows, build-linux, build-macos]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: ./artifacts
+
+      - name: Get version
+        id: get_version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "VERSION=${{ github.event.inputs.version }}" >> $GITHUB_ENV
+          else
+            VERSION=${GITHUB_REF#refs/tags/v}
+            echo "VERSION=$VERSION" >> $GITHUB_ENV
+          fi
+          echo "Version: $VERSION"
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: v${{ env.VERSION }}
+          body: |
+            ## Zone New Companion v${{ env.VERSION }}
+
+            ### Downloads
+            - **Windows**: zone-new-companion.exe
+            - **Linux**: zone-new-companion.AppImage
+            - **macOS**: Zone-New-Companion.dmg
+
+            ### Installation
+            1. Download the appropriate file for your platform
+            2. Windows: Double-click the .exe file
+            3. Linux: Make the AppImage executable with `chmod +x` then run
+            4. macOS: Open the .dmg and drag to Applications
+
+            ### Requirements
+            - VLC media player must be installed separately
+            - For OCR features: Tesseract OCR and FFmpeg (see BUILD.md)
+
+            See [BUILD.md](https://github.com/kidpoleon/zone-new-companion/blob/main/BUILD.md) for detailed build instructions.
+          files: |
+            ./artifacts/windows-exe/zone-new-companion.exe
+            ./artifacts/linux-appimage/zone-new-companion.AppImage
+            ./artifacts/macos-dmg/Zone-New-Companion.dmg
+          draft: false
+          prerelease: false
