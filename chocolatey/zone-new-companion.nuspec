@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <package xmlns="http://schemas.microsoft.com/packaging/2015/06/nuspec.xsd">
   <metadata>
-    <id>zone-new-companion</id>
+    <id>zone-new-companion-kidpoleon</id>
     <version>1.2.3</version>
     <packageSourceUrl>https://github.com/kidpoleon/zone-new-companion</packageSourceUrl>
     <owners>kidpoleon</owners>
