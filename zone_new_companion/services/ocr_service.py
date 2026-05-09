@@ -88,7 +88,7 @@ class OCRService:
             # Cleanup
             try:
                 frame_path.unlink()
-            except:
+            except (OSError, FileNotFoundError):
                 pass
                 
             return is_valid, text
@@ -226,7 +226,7 @@ class OCRService:
                 )
                 if response.status_code == 200:
                     return True
-        except:
+        except Exception:
             pass
         
         # Fall back to frame extraction check
@@ -237,7 +237,7 @@ class OCRService:
         if frame_path:
             try:
                 frame_path.unlink()
-            except:
+            except (OSError, FileNotFoundError):
                 pass
             return True
             

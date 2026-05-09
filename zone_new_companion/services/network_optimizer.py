@@ -2,11 +2,9 @@
 
 from __future__ import annotations
 
-import socket
 import ssl
 import time
 from urllib.parse import urlparse
-from urllib3 import PoolManager, Retry, Timeout
 import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
@@ -308,7 +306,7 @@ class OptimizedSession:
                     response = self.session.get(rotated_url, **kwargs)
                     if response.status_code < 500:
                         return response
-                except:
+                except Exception:
                     pass  # Fall through to normal rotation
         
         # Try original URL first
@@ -320,7 +318,7 @@ class OptimizedSession:
                 return response
         except Exception:
             pass
-        
+
         # Try protocol rotation
         if parsed.scheme == 'https':
             # Try HTTP
@@ -342,7 +340,7 @@ class OptimizedSession:
                     return response
             except Exception:
                 pass
-        
+
         # If all attempts failed, raise the last error
         raise requests.RequestException(f"All protocol attempts failed for {url}")
 
