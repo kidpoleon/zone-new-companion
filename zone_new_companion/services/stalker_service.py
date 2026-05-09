@@ -18,6 +18,7 @@ from zone_new_companion.models import Credentials, EpgEntry, MediaItem, Playlist
 from zone_new_companion.services.base import PortalService
 from zone_new_companion.services.logger_service import logger_service
 from zone_new_companion.services.network import DEFAULT_TIMEOUT, normalize_url
+from zone_new_companion.services.network_optimizer import OptimizedSession
 
 
 # MAG Box emulation constants
@@ -34,11 +35,11 @@ class StalkerService(PortalService):
     """Enhanced Stalker service with robust stream URL handling."""
 
     def __init__(self) -> None:
-        self._session = requests.Session()
-        self._session.headers.update({
-            "User-Agent": MAG_USER_AGENT,
-            "X-User-Agent": X_USER_AGENT,
-        })
+        # Use OptimizedSession for enhanced SSL handling and connection pooling
+        self._session = OptimizedSession()
+        
+        # Note: MAG box headers are set per-request since OptimizedSession
+        # manages its own underlying sessions with connection pooling
 
         self._token = ""
         self._token_key = ""

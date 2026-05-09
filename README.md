@@ -48,8 +48,35 @@ Zone New Companion is a modern, cross-platform PyQt6 application that unifies IP
 
 ### Prerequisites
 - Python 3.8+
-- VLC media player
-- (Optional) Tesseract OCR for enhanced validation
+- VLC media player (required for streaming)
+
+### System Dependencies (Required for OCR features)
+
+#### Tesseract OCR
+- **Ubuntu/Debian**: `sudo apt install tesseract-ocr`
+- **Fedora**: `sudo dnf install tesseract`
+- **macOS**: `brew install tesseract`
+- **Windows**: Download from https://github.com/UB-Mannheim/tesseract/wiki or `choco install tesseract`
+
+#### FFmpeg
+- **Ubuntu/Debian**: `sudo apt install ffmpeg`
+- **Fedora**: `sudo dnf install ffmpeg`
+- **macOS**: `brew install ffmpeg`
+- **Windows**: `choco install ffmpeg` or download from ffmpeg.org
+
+### Package Manager Installation (Recommended)
+
+#### Windows (Chocolatey)
+```powershell
+choco install zone-new-companion
+```
+
+#### Windows (Manual)
+Download `zone-new-companion.exe` from [Releases](https://github.com/kidpoleon/zone-new-companion/releases):
+
+1. Navigate to **Releases** → **Assets**
+2. Download `zone-new-companion.exe`
+3. Double-click to run — no installation required
 
 ### Quick Start
 
@@ -69,14 +96,6 @@ pip install -r requirements.txt
 # Launch
 python main.py
 ```
-
-### Windows Executable
-
-Download the pre-built executable from [Releases](https://github.com/kidpoleon/zone-new-companion/releases):
-
-1. Navigate to **Releases** → **Assets**
-2. Download `zone-new-companion.exe`
-3. Double-click to run — no installation required
 
 ## 📖 Usage
 

@@ -4,7 +4,8 @@
 
 | Version | Supported          |
 |---------|--------------------|
-| 1.1.4   | :white_check_mark: |
+| 1.2.0   | :white_check_mark: |
+| 1.1.x   | :white_check_mark: |
 | < 1.1.4 | :x:                |
 
 ## Reporting a Vulnerability
@@ -13,7 +14,7 @@ If you discover a security vulnerability in zone-new-companion, please report it
 
 ### How to Report
 
-1. **Email**: Send a detailed report to `[security-email-placeholder]`
+1. **Email**: Send a detailed report to security@kidpoleon.dev (or use GitHub Security Advisory below)
 2. **GitHub Security**: Use the [GitHub Security Advisory](https://github.com/kidpoleon/zone-new-companion/security/advisories) feature
 3. **Private Issue**: Create a private issue on GitHub
 
@@ -88,7 +89,7 @@ We follow responsible disclosure principles:
 
 ## Security Contacts
 
-- **Security Team**: `[security-email-placeholder]`
+- **Security Team**: security@kidpoleon.dev
 - **GitHub Issues**: Use the security advisory feature
 - **Discussions**: Tag `@security-team` in any security-related discussions
 

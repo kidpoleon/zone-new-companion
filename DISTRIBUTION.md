@@ -5,7 +5,6 @@ This document explains how to distribute Zone New Companion through various pack
 ## Table of Contents
 
 - [Windows - Chocolatey](#windows---chocolatey)
-- [Linux - Snap Store](#linux---snap-store)
 - [Manual Installation](#manual-installation)
 
 ---
@@ -59,7 +58,7 @@ Chocolatey is a package manager for Windows that simplifies software installatio
 
 3. Push the package:
    ```powershell
-   choco push zone-new-companion.1.1.11.nupkg --source https://push.chocolatey.org/
+   choco push zone-new-companion.1.2.0.nupkg --source https://push.chocolatey.org/
    ```
 
 4. Wait for moderation (usually 1-2 business days)
@@ -70,109 +69,6 @@ To update the package for a new version:
 1. Update version in `zone-new-companion.nuspec`
 2. Update release notes URL
 3. Build and push new package
-
----
-
-## Linux - Snap Store
-
-Snap is a universal package manager for Linux that works across distributions.
-
-### Prerequisites
-
-1. Install snapcraft:
-   ```bash
-   sudo snap install snapcraft --classic
-   ```
-
-2. Install multipass (for clean build environment):
-   ```bash
-   sudo snap install multipass
-   ```
-
-### Building the Snap
-
-1. Navigate to the project root:
-   ```bash
-   cd zone-new-companion
-   ```
-
-2. Build the snap:
-   ```bash
-   snapcraft
-   ```
-
-   Or with verbose output:
-   ```bash
-   snapcraft --debug
-   ```
-
-3. The snap will be created as `zone-new-companion_1.1.11_amd64.snap`
-
-### Testing Locally
-
-1. Install the snap locally:
-   ```bash
-   sudo snap install zone-new-companion_1.1.11_amd64.snap --dangerous
-   ```
-
-2. Run the application:
-   ```bash
-   zone-new-companion
-   ```
-
-3. Check logs if needed:
-   ```bash
-   snap logs zone-new-companion
-   ```
-
-### Publishing to Snap Store
-
-1. Create a Snap Store account at https://snapcraft.io/account
-
-2. Login to snapcraft:
-   ```bash
-   snapcraft login
-   ```
-
-3. Register the snap name:
-   ```bash
-   snapcraft register zone-new-companion
-   ```
-
-4. Upload the snap:
-   ```bash
-   snapcraft upload zone-new-companion_1.1.11_amd64.snap --release=stable
-   ```
-
-5. Users can then install via:
-   ```bash
-   sudo snap install zone-new-companion
-   ```
-
-### Auto-build with GitHub Actions
-
-Create `.github/workflows/snap.yml`:
-```yaml
-name: Build and Publish Snap
-
-on:
-  push:
-    tags:
-      - 'v*'
-
-jobs:
-  build:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: snapcore/action-build@v1
-        id: build
-      - uses: snapcore/action-publish@v1
-        with:
-          store-login: ${{ secrets.SNAP_STORE_LOGIN }}
-          snap: ${{ steps.build.outputs.snap }}
-          release: stable
-```
 
 ---
 
@@ -239,7 +135,6 @@ The application will automatically detect VLC in common installation locations.
 ### Security
 
 - Chocolatey packages are moderated by community
-- Snap packages are sandboxed by default
 - No elevated privileges required to run
 - User data stored in standard locations:
   - Windows: `%USERPROFILE%\.zone-new-companion\`
@@ -254,12 +149,6 @@ The application will automatically detect VLC in common installation locations.
 - Package not found: Wait for moderation to complete
 - Installation fails: Check VLC is installed first
 - Upgrade issues: `choco upgrade zone-new-companion --force`
-
-### Snap
-
-- Permission denied: Check snap connections with `snap connections zone-new-companion`
-- VLC not found: Install VLC snap or ensure it's in PATH
-- Display issues: Try `QT_QPA_PLATFORM=xcb zone-new-companion`
 
 ---
 
